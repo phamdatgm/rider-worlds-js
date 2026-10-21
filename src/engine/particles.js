@@ -1,6 +1,7 @@
 // A compact CPU implementation of Unity's Shuriken ParticleSystem covering the modules the game uses:
-// main (lifetime/speed/size/color/rotation/gravity), emission (rate over time/distance, bursts),
-// shape (sphere/hemisphere/cone/box/circle/edge), velocity/size/color/rotation over lifetime.
+// main (lifetime/speed/size/color/rotation/gravity, 3D size/rotation), emission (rate over time/distance, bursts),
+// shape (sphere/hemisphere/cone/box/circle/edge), velocity/force/size/color/rotation over lifetime,
+// limit velocity (+ drag), noise, texture sheet animation and trails (per particle and ribbon).
 // Particles are camera-facing quads in the XY plane (the gameplay camera never rotates).
 import * as THREE from 'three';
 import { Behaviour, Destroy, World } from './scene.js';
@@ -62,6 +63,44 @@ export function evalGradient(g, t = 0, r = rnd(), out = [1, 1, 1, 1]) {
       return out;
     }
   }
+}
+
+// smooth value noise in [-1, 1] (NoiseModule stand-in for Unity's curl/perlin noise)
+function hash3(x, y, z) {
+  let h = (x * 374761393 + y * 668265263 + z * 1274126177) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+
+function valueNoise(x, y, z) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
+  const s = (t) => t * t * (3 - 2 * t);
+  const fx = s(x - xi);
+  const fy = s(y - yi);
+  const fz = s(z - zi);
+  const l = (a, b, t) => a + (b - a) * t;
+  const c = (dx, dy, dz) => hash3(xi + dx, yi + dy, zi + dz);
+  const x00 = l(c(0, 0, 0), c(1, 0, 0), fx);
+  const x10 = l(c(0, 1, 0), c(1, 1, 0), fx);
+  const x01 = l(c(0, 0, 1), c(1, 0, 1), fx);
+  const x11 = l(c(0, 1, 1), c(1, 1, 1), fx);
+  return l(l(x00, x10, fy), l(x01, x11, fy), fz) * 2 - 1;
+}
+
+function noise3(x, y, z, octaves, nm) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    sum += valueNoise(x * f, y * f, z * f) * amp;
+    norm += amp;
+    amp *= nm.octaveMultiplier ?? 0.5;
+    f *= nm.octaveScale ?? 2;
+  }
+  return sum / norm;
 }
 
 /** TextureSheetAnimation (grid mode): uv rect [u0, v0, u1, v1] of a particle's current tile, or null */
@@ -137,16 +176,23 @@ export class ParticleSystem extends Behaviour {
     this._isActiveAndEnabled = false;
     World.behaviours.delete(this);
     this.particles.length = 0;
+    this.orphans = null;
     this.playing = false;
     if (this.mesh) this.mesh.visible = false;
+    if (this.trailMesh) this.trailMesh.visible = false;
   }
 
   _destroy() {
     this._deactivate();
     if (this.mesh) {
       this.mesh.removeFromParent();
-      if (!this.mesh.userData.instanced) this.mesh.geometry.dispose();
+      this.mesh.geometry.dispose();
       this.mesh = null;
+    }
+    if (this.trailMesh) {
+      this.trailMesh.removeFromParent();
+      this.trailMesh.geometry.dispose();
+      this.trailMesh = null;
     }
   }
 
@@ -175,7 +221,10 @@ export class ParticleSystem extends Behaviour {
     for (const s of this._systems(withChildren)) {
       s.playing = false;
       s.paused = false;
-      if (clear) s.particles.length = 0;
+      if (clear) {
+        s.particles.length = 0;
+        s.orphans = null;
+      }
     }
   }
 
@@ -184,7 +233,10 @@ export class ParticleSystem extends Behaviour {
   }
 
   Clear(withChildren = true) {
-    for (const s of this._systems(withChildren)) s.particles.length = 0;
+    for (const s of this._systems(withChildren)) {
+      s.particles.length = 0;
+      s.orphans = null;
+    }
   }
 
   Emit(n) {
@@ -222,11 +274,12 @@ export class ParticleSystem extends Behaviour {
     const dt = this.d.useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
     if (this.paused) return this._render();
     const sim = dt * (this.d.simulationSpeed ?? 1);
+    // step the live particles first: new ones are only aged by their sub-frame time (see _emit)
+    this._integrate(sim);
     if (this.playing) {
       if (this.delay > 0) this.delay -= sim;
       else this._emit(sim);
     }
-    this._integrate(sim);
     if (!this.playing && this.particles.length === 0 && this._wasAlive) {
       this._wasAlive = false;
       if (this.stopAction === 2) Destroy(this.gameObject);
@@ -237,30 +290,37 @@ export class ParticleSystem extends Behaviour {
 
   _emit(dt) {
     const em = this.d.EmissionModule || {};
-    const t0 = this.time;
     this.time += dt;
     const norm = Mathf.Clamp01(this.time / this.duration);
+    const pos = this.transform.position;
+    const prev = this.lastPos || pos;
+    this.lastPos = pos;
     if (em.enabled) {
       const rate = this.rateOverride ?? evalCurve(em.rateOverTime, norm, 0.5);
       this.emitAcc += rate * dt;
-      const pos = this.transform.position;
       const distRate = evalCurve(em.rateOverDistance, norm, 0.5);
-      if (distRate > 0 && this.lastPos) this.distAcc += pos.distanceTo(this.lastPos) * distRate;
-      this.lastPos = pos;
-      let n = Math.floor(this.emitAcc) + Math.floor(this.distAcc);
+      if (distRate > 0) this.distAcc += pos.distanceTo(prev) * distRate;
+      const n = Math.floor(this.emitAcc) + Math.floor(this.distAcc);
       this.emitAcc -= Math.floor(this.emitAcc);
       this.distAcc -= Math.floor(this.distAcc);
+      // continuous emission is spread over the frame like Unity: world-space particles are placed along the path
+      // the emitter travelled and pre-aged by their sub-frame time, so trails/ribbons stay continuous at any fps
+      const back = this.worldSpace ? _back.subVectors(prev, pos) : null;
+      for (let i = 0; i < n; i++) {
+        const lag = 1 - (i + 1) / n; // 0 = emitted at the end of the frame
+        this._spawn(norm, back, lag, dt);
+      }
+      let nb = 0;
       (em.m_Bursts || []).forEach((b, i) => {
         const st = this.burstState[i];
         const cycles = b.cycleCount || 1;
         const interval = b.repeatInterval || 0.01;
         while (st.cycles < cycles && this.time >= (b.time || 0) + st.cycles * interval) {
-          if (rnd() <= (b.probability ?? 1)) n += Math.round(evalCurve(b.countCurve ?? { scalar: b.minCount ?? 30 }));
+          if (rnd() <= (b.probability ?? 1)) nb += Math.round(evalCurve(b.countCurve ?? { scalar: b.minCount ?? 30 }));
           st.cycles++;
         }
-        void t0;
       });
-      for (let i = 0; i < n; i++) this._spawn(norm);
+      for (let i = 0; i < nb; i++) this._spawn(norm);
     }
     if (this.time >= this.duration) {
       if (this.looping) {
@@ -350,7 +410,7 @@ export class ParticleSystem extends Behaviour {
     return { p, dir };
   }
 
-  _spawn(norm = 0) {
+  _spawn(norm = 0, back = null, lag = 0, dt = 0) {
     if (this.particles.length >= this.maxParticles) return;
     const m = this.main;
     const life = Math.max(evalCurve(m.startLifetime, norm), 0.01);
@@ -363,47 +423,160 @@ export class ParticleSystem extends Behaviour {
       p.applyMatrix4(this._simMatrix());
       vel.applyQuaternion(this.transform.rotation);
     }
-    this.particles.push({
+    const rad = (c) => evalCurve(c) * (c?.scalar > 7 ? Deg2Rad : 1);
+    const tm = this.d.TrailModule;
+    const q = {
       p,
       v: vel,
+      vt: vel.clone(), // total velocity of the last step (stretched billboards)
       age: 0,
       life,
       size,
+      // InitialModule.size3D: per-axis start size (startSize is X)
+      sy: m.size3D ? evalCurve(m.startSizeY, norm) : size,
+      sz: m.size3D ? evalCurve(m.startSizeZ, norm) : size,
       color,
-      rot: evalCurve(m.startRotation) * (m.startRotation?.scalar > 7 ? Deg2Rad : 1),
+      rot: rad(m.startRotation),
+      rx: m.rotation3D ? rad(m.startRotationX) : 0,
+      ry: m.rotation3D ? rad(m.startRotationY) : 0,
       rr: rnd(),
+      rf: [rnd(), rnd(), rnd()], // ForceModule random-between-constants picks
+      seed: rnd() * 100,
       gravity: evalCurve(m.gravityModifier, norm),
       frame: this.startFrameOverride ?? evalCurve(this.d.UVModule?.startFrame, norm),
-    });
+    };
+    if (m.randomizeRotationDirection && rnd() < m.randomizeRotationDirection) q.flip = -1;
+    if (lag > 0) {
+      const age = Math.min(lag * dt, life * 0.999);
+      if (back) p.addScaledVector(back, lag);
+      p.addScaledVector(vel, age);
+      q.age = age;
+    }
+    if (tm?.enabled && tm.mode === 0 && rnd() <= (tm.ratio ?? 1)) {
+      q.trail = [];
+      q.trailLife = Math.max(evalCurve(tm.lifetime, norm, q.rr), 0) * life;
+    }
+    this.particles.push(q);
     this._wasAlive = true;
   }
 
   _integrate(dt) {
-    const vm = this.d.VelocityModule || {};
+    const d = this.d;
+    const vm = d.VelocityModule || {};
+    const fm = d.ForceModule;
+    const cv = d.ClampVelocityModule;
+    const nm = d.NoiseModule;
+    const rm = d.RotationModule;
+    const tm = d.TrailModule?.enabled && d.TrailModule.mode === 0 ? d.TrailModule : null;
+    const sizeM = d.SizeModule;
     const ps = this.particles;
+    this._noiseTime = (this._noiseTime || 0) + dt;
     for (let i = ps.length - 1; i >= 0; i--) {
       const q = ps[i];
       q.age += dt;
       if (q.age >= q.life) {
         ps.splice(i, 1);
+        // Trails.dieWithParticles = false: the trail stays and fades on its own
+        if (q.trail?.length && tm && !tm.dieWithParticles) this._orphan(q);
         continue;
       }
+      const t = q.age / q.life;
       if (q.gravity) q.v.y -= 9.81 * q.gravity * dt;
+      if (fm?.enabled) {
+        // ForceOverLifetime accumulates into the particle velocity (z mirrored like the rest of the port)
+        const r = fm.randomizePerFrame ? [rnd(), rnd(), rnd()] : q.rf;
+        q.v.x += evalCurve(fm.x, t, r[0]) * dt;
+        q.v.y += evalCurve(fm.y, t, r[1]) * dt;
+        q.v.z -= evalCurve(fm.z, t, r[2]) * dt;
+      }
+      if (cv?.enabled) this._limitVelocity(cv, q, t, dt, sizeM);
       let vx = q.v.x;
       let vy = q.v.y;
       let vz = q.v.z;
       if (vm.enabled) {
-        const t = q.age / q.life;
         vx += evalCurve(vm.x, t, q.rr);
         vy += evalCurve(vm.y, t, q.rr);
         vz -= evalCurve(vm.z, t, q.rr);
       }
+      if (nm?.enabled) {
+        // NoiseModule: smooth 3D noise added as a velocity (position amount), scrolled over time
+        const freq = nm.frequency || 0.5;
+        const scroll = evalCurve(nm.scrollSpeed, t, q.rr) * this._noiseTime;
+        const amt = evalCurve(nm.positionAmount, t, q.rr);
+        const sx = evalCurve(nm.strength, t, q.rr);
+        const sy = nm.separateAxes ? evalCurve(nm.strengthY, t, q.rr) : sx;
+        const sz = nm.separateAxes ? evalCurve(nm.strengthZ, t, q.rr) : sx;
+        // Damping: strength scales with frequency so the motion amplitude stays the same
+        const k = (nm.damping ? freq : 1) * amt;
+        const oct = Math.max(1, nm.octaves || 1);
+        vx += noise3(q.p.x * freq + scroll, q.p.y * freq, q.p.z * freq + q.seed, oct, nm) * sx * k;
+        vy += noise3(q.p.x * freq + 31.7, q.p.y * freq + scroll, q.p.z * freq + q.seed, oct, nm) * sy * k;
+        vz += noise3(q.p.x * freq + 71.3, q.p.y * freq + 17.9, q.p.z * freq + q.seed + scroll, oct, nm) * sz * k;
+      }
+      q.vt.set(vx, vy, vz);
       q.p.x += vx * dt;
       q.p.y += vy * dt;
       q.p.z += vz * dt;
-      const rm = this.d.RotationModule;
-      if (rm?.enabled) q.rot += evalCurve(rm.curve, q.age / q.life, q.rr) * dt;
+      if (rm?.enabled) {
+        const dir = q.flip || 1;
+        q.rot += evalCurve(rm.curve, t, q.rr) * dt * dir;
+        if (rm.separateAxes) {
+          q.rx += evalCurve(rm.x, t, q.rr) * dt * dir;
+          q.ry += evalCurve(rm.y, t, q.rr) * dt * dir;
+        }
+      }
+      if (q.trail) this._recordTrail(q, tm);
     }
+    this._ageOrphans(dt);
+  }
+
+  /** LimitVelocityOverLifetime: dampen the speed above the limit, then apply drag */
+  _limitVelocity(cv, q, t, dt, sizeM) {
+    // dampen is the fraction removed per (30 fps) frame above the limit, made frame-rate independent
+    const keep = Math.pow(1 - Mathf.Clamp01(cv.dampen ?? 0), dt * 30);
+    if (cv.separateAxis) {
+      const lim = [evalCurve(cv.x, t, q.rr), evalCurve(cv.y, t, q.rr), evalCurve(cv.z, t, q.rr)];
+      for (const [k, l] of [['x', lim[0]], ['y', lim[1]], ['z', lim[2]]]) {
+        const a = Math.abs(q.v[k]);
+        if (a > l) q.v[k] = Math.sign(q.v[k]) * (l + (a - l) * keep);
+      }
+    } else {
+      const lim = evalCurve(cv.magnitude, t, q.rr);
+      const sp = q.v.length();
+      if (sp > lim && sp > 1e-6) q.v.multiplyScalar((lim + (sp - lim) * keep) / sp);
+    }
+    let drag = evalCurve(cv.drag, t, q.rr);
+    if (drag > 0) {
+      if (cv.multiplyDragByParticleSize) {
+        const s = q.size * (sizeM?.enabled ? evalCurve(sizeM.curve, t, q.rr) : 1);
+        drag *= s * s;
+      }
+      if (cv.multiplyDragByParticleVelocity) drag *= q.v.length();
+      q.v.multiplyScalar(Math.max(0, 1 - drag * dt));
+    }
+  }
+
+  // ---- trails (TrailModule, mode PerParticle): vertex history behind each particle
+  _recordTrail(q, tm) {
+    const tr = q.trail;
+    const now = this._noiseTime;
+    const last = tr[tr.length - 1];
+    const minD = tm.minVertexDistance ?? 0.2;
+    if (!last || (q.p.x - last.x) ** 2 + (q.p.y - last.y) ** 2 + (q.p.z - last.z) ** 2 >= minD * minD) tr.push({ x: q.p.x, y: q.p.y, z: q.p.z, t: now });
+    while (tr.length && now - tr[0].t > q.trailLife) tr.shift();
+  }
+
+  _orphan(q) {
+    (this.orphans ||= []).push({ trail: q.trail, trailLife: q.trailLife, size: q.size, color: q.color, t: 1, rr: q.rr, p: q.trail[q.trail.length - 1] });
+  }
+
+  _ageOrphans() {
+    if (!this.orphans?.length) return;
+    const now = this._noiseTime;
+    this.orphans = this.orphans.filter((o) => {
+      while (o.trail.length && now - o.trail[0].t > o.trailLife) o.trail.shift();
+      return o.trail.length > 1;
+    });
   }
 
   _ensureMesh() {
@@ -412,12 +585,13 @@ export class ParticleSystem extends Behaviour {
     if (!r || !r.enabled) return null;
     const n = this.maxParticles;
     if (r.renderMode === 4) {
-      // Mesh particles: one instance per particle
-      const geo = getGeometry(r.meshRef);
-      if (!geo) return null;
+      // Mesh particles: one instance per particle, with the particle color as a per-instance vertex color
+      const src = getGeometry(r.meshRef);
+      if (!src) return null;
+      const geo = src.clone();
+      geo.setAttribute('color', new THREE.InstancedBufferAttribute(new Float32Array(n * 4).fill(1), 4).setUsage(THREE.DynamicDrawUsage));
       const ref = (r._materialRefs || [])[0];
-      const hasColor = !!geo.attributes.color;
-      const mat = ref ? getMaterial(ref, hasColor) : new THREE.MeshBasicMaterial();
+      const mat = ref ? getMaterial(ref, true) : new THREE.MeshBasicMaterial();
       this.mesh = new THREE.InstancedMesh(geo, mat, n);
       this.mesh.count = 0;
       this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -430,15 +604,11 @@ export class ParticleSystem extends Behaviour {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 4 * 3), 3).setUsage(THREE.DynamicDrawUsage));
-    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 4 * 2), 2));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 4 * 2), 2).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 4 * 4), 4).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 4 * 3).map((_, i) => (i % 3 === 2 ? 1 : 0)), 3));
     const idx = new Uint16Array(n * 6);
-    const uv = geo.attributes.uv.array;
-    for (let i = 0; i < n; i++) {
-      idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
-      uv.set([0, 0, 1, 0, 1, 1, 0, 1], i * 8);
-    }
+    for (let i = 0; i < n; i++) idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
     geo.setDrawRange(0, 0);
     const ref = (r._materialRefs || [])[0];
@@ -453,11 +623,48 @@ export class ParticleSystem extends Behaviour {
     return this.mesh;
   }
 
+  /** particle color at normalized age t (start color x color over lifetime) */
+  _particleColor(q, t, out) {
+    const colM = this.d.ColorModule;
+    const colG = this.colorOverride || (colM?.enabled ? colM.gradient : null);
+    if (colG) evalGradient(colG, t, q.rr, out);
+    else out[0] = out[1] = out[2] = out[3] = 1;
+    for (let k = 0; k < 4; k++) out[k] *= q.color[k];
+    return out;
+  }
+
+  /** current [x, y, z] size of a particle (start size x size over lifetime) */
+  _particleSize(q, t, out) {
+    const sizeM = this.d.SizeModule;
+    out[0] = q.size;
+    out[1] = q.sy;
+    out[2] = q.sz;
+    if (sizeM?.enabled) {
+      const sx = evalCurve(sizeM.curve, t, q.rr);
+      if (sizeM.separateAxes) {
+        out[0] *= sx;
+        out[1] *= evalCurve(sizeM.y, t, q.rr);
+        out[2] *= evalCurve(sizeM.z, t, q.rr);
+      } else {
+        out[0] *= sx;
+        out[1] *= sx;
+        out[2] *= sx;
+      }
+    }
+    return out;
+  }
+
   _render() {
     if (this._ui) {
       if (this.mesh) this.mesh.visible = false;
+      if (this.trailMesh) this.trailMesh.visible = false;
       return;
     }
+    this._renderParticles();
+    this._renderTrails();
+  }
+
+  _renderParticles() {
     const ps = this.particles;
     if (!ps.length) {
       if (this.mesh) {
@@ -477,11 +684,9 @@ export class ParticleSystem extends Behaviour {
     const stretch = r.renderMode === 1;
     const pos = mesh.geometry.attributes.position.array;
     const col = mesh.geometry.attributes.color.array;
-    const sizeM = this.d.SizeModule;
-    const colM = this.d.ColorModule;
-    const colG = this.colorOverride || (colM?.enabled ? colM.gradient : null);
-    const scale = this.worldSpace ? 1 : 1;
+    const uvs = mesh.geometry.attributes.uv.array;
     const c = [1, 1, 1, 1];
+    const sz = [1, 1, 1];
     // ParticleSystemRenderer.maxParticleSize: size limited to a fraction of the viewport height
     const cam = Render.camera;
     const maxSize = r.maxParticleSize;
@@ -490,33 +695,42 @@ export class ParticleSystem extends Behaviour {
     let n = 0;
     for (const q of ps) {
       const t = q.age / q.life;
-      let s = q.size * scale;
-      if (sizeM?.enabled) s *= evalCurve(sizeM.curve, t, q.rr);
+      this._particleSize(q, t, sz);
+      let w = sz[0];
+      let hgt = sz[1];
       if (toView) {
         const depth = -_pv.copy(q.p).applyMatrix4(toView).z;
-        if (depth > 0) s = Math.min(s, maxSize * 2 * depth * tanHalf);
+        if (depth > 0) {
+          const lim = maxSize * 2 * depth * tanHalf;
+          const k = Math.min(1, lim / Math.max(w, hgt, 1e-6));
+          w *= k;
+          hgt *= k;
+        }
       }
-      const h = s / 2;
-      let ax = h;
+      const hw = w / 2;
+      const hh = hgt / 2;
+      let ax = hw;
       let ay = 0;
       let bx = 0;
-      let by = h;
+      let by = hh;
       if (stretch) {
-        const vl = Math.hypot(q.v.x, q.v.y) || 1e-5;
-        const ux = q.v.x / vl;
-        const uy = q.v.y / vl;
-        const len = h * (r.lengthScale ?? 2) + vl * (r.velocityScale ?? 0) * 0.5;
+        const v = q.vt;
+        const vl = Math.hypot(v.x, v.y) || 1e-5;
+        const ux = v.x / vl;
+        const uy = v.y / vl;
+        const len = hw * (r.lengthScale ?? 2) + vl * (r.velocityScale ?? 0) * 0.5;
         ax = ux * len;
         ay = uy * len;
-        bx = -uy * h;
-        by = ux * h;
+        bx = -uy * hh;
+        by = ux * hh;
       } else if (q.rot) {
-        const cs = Math.cos(q.rot);
-        const sn = Math.sin(q.rot);
-        ax = cs * h;
-        ay = sn * h;
-        bx = -sn * h;
-        by = cs * h;
+        // Unity billboard rotation is clockwise for positive angles on screen (same as UIParticle)
+        const cs = Math.cos(-q.rot);
+        const sn = Math.sin(-q.rot);
+        ax = cs * hw;
+        ay = sn * hw;
+        bx = -sn * hh;
+        by = cs * hh;
       }
       const o = n * 12;
       const x = q.p.x;
@@ -534,49 +748,206 @@ export class ParticleSystem extends Behaviour {
       pos[o + 9] = x - ax + bx;
       pos[o + 10] = y - ay + by;
       pos[o + 11] = z;
-      if (colG) evalGradient(colG, t, q.rr, c);
-      else c[0] = c[1] = c[2] = c[3] = 1;
-      const cr = q.color[0] * c[0];
-      const cg = q.color[1] * c[1];
-      const cb = q.color[2] * c[2];
-      const ca = q.color[3] * c[3];
-      for (let k = 0; k < 4; k++) {
-        const ci = n * 16 + k * 4;
-        col[ci] = cr;
-        col[ci + 1] = cg;
-        col[ci + 2] = cb;
-        col[ci + 3] = ca;
-      }
+      const uv = sheetUV(this, q) || UV01;
+      uvs.set([uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], n * 8);
+      this._particleColor(q, t, c);
+      for (let k = 0; k < 4; k++) col.set(c, n * 16 + k * 4);
       n++;
     }
     mesh.geometry.attributes.position.needsUpdate = true;
     mesh.geometry.attributes.color.needsUpdate = true;
+    mesh.geometry.attributes.uv.needsUpdate = true;
     mesh.geometry.setDrawRange(0, n * 6);
+  }
+
+  _renderInstances(mesh) {
+    const col = mesh.geometry.attributes.color;
+    const c = [1, 1, 1, 1];
+    const sz = [1, 1, 1];
+    let n = 0;
+    for (const q of this.particles) {
+      const t = q.age / q.life;
+      this._particleSize(q, t, sz);
+      // Unity euler (x, y, z) -> mirrored space (-x, -y, z), applied Z, X, Y like Unity
+      _ie.set(-q.rx, -q.ry, q.rot || 0, 'YXZ');
+      _iq.setFromEuler(_ie);
+      _is.set(sz[0], sz[1], sz[2]);
+      _im.compose(_ip.copy(q.p), _iq, _is);
+      mesh.setMatrixAt(n, _im);
+      this._particleColor(q, t, c);
+      col.array.set(c, n * 4);
+      n++;
+    }
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+    col.needsUpdate = true;
+  }
+
+  // ---- trails: ParticleSystemRenderer trail material (m_Materials[1]), strips in the XY plane
+  _ensureTrailMesh() {
+    if (this.trailMesh) return this.trailMesh;
+    const r = this.renderer;
+    const ref = (r?._materialRefs || [])[1];
+    if (!r || !r.enabled || !ref) return null;
+    const geo = new THREE.BufferGeometry();
+    const mat = getMaterial(ref, true);
+    this.trailMesh = new THREE.Mesh(geo, mat);
+    this.trailMesh.frustumCulled = false;
+    this.trailMesh.renderOrder = (mat.userData?.renderQueue ?? 3000) + (r.sortingOrder || 0) * 0.001;
+    this.trailMesh.matrixAutoUpdate = false;
+    this.trailCap = 0;
+    World.root.add(this.trailMesh);
+    return this.trailMesh;
+  }
+
+  _trailBuffers(verts) {
+    const m = this.trailMesh;
+    if (verts <= this.trailCap) return;
+    const cap = Math.max(64, 1 << Math.ceil(Math.log2(verts)));
+    const geo = m.geometry;
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(cap * 2), 2).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(cap * 3).map((_, i) => (i % 3 === 2 ? 1 : 0)), 3));
+    const idx = new Uint32Array(cap * 3);
+    geo.setIndex(new THREE.BufferAttribute(idx, 1).setUsage(THREE.DynamicDrawUsage));
+    this.trailCap = cap;
+  }
+
+  /** collect the strips: [{pts: [{x,y,z}], w: [..], c: [[r,g,b,a]..]}], index 0 = trail head */
+  _trailStrips() {
+    const tm = this.d.TrailModule;
+    if (!tm?.enabled) return [];
+    const strips = [];
+    const c = [1, 1, 1, 1];
+    const sz = [1, 1, 1];
+    const g = [1, 1, 1, 1];
+    const tint = (base, ageT, u, rr) => {
+      const out = tm.inheritParticleColor ? base.slice() : [1, 1, 1, 1];
+      evalGradient(tm.colorOverLifetime, ageT, rr, g);
+      for (let k = 0; k < 4; k++) out[k] *= g[k];
+      evalGradient(tm.colorOverTrail, u, rr, g);
+      for (let k = 0; k < 4; k++) out[k] *= g[k];
+      return out;
+    };
+    const widthAt = (u, size, rr) => evalCurve(tm.widthOverTrail, u, rr) * (tm.sizeAffectsWidth ? size : 1);
+    if (tm.mode === 1) {
+      // Ribbon: particles joined in age order (oldest = 0 .. newest = 1), ribbonCount ribbons round-robin
+      const ribbons = Math.max(1, tm.ribbonCount || 1);
+      const sorted = this.particles.slice().sort((a, b) => b.age - a.age);
+      for (let rb = 0; rb < ribbons; rb++) {
+        const list = sorted.filter((_, i) => i % ribbons === rb);
+        if (list.length < 2) continue;
+        const s = { pts: [], w: [], c: [] };
+        list.forEach((q, i) => {
+          const u = i / (list.length - 1);
+          const t = q.age / q.life;
+          this._particleSize(q, t, sz);
+          this._particleColor(q, t, c);
+          s.pts.push(q.p);
+          s.w.push(widthAt(u, sz[0], q.rr));
+          s.c.push(tint(c, t, u, q.rr));
+        });
+        strips.push(s);
+      }
+      return strips;
+    }
+    const add = (trail, head, size, color, ageT, rr) => {
+      const pts = [head];
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const p = trail[i];
+        if (i === trail.length - 1 && Math.abs(p.x - head.x) + Math.abs(p.y - head.y) < 1e-4) continue;
+        pts.push(p);
+      }
+      if (pts.length < 2) return;
+      const s = { pts, w: [], c: [] };
+      pts.forEach((_, i) => {
+        const u = i / (pts.length - 1);
+        s.w.push(widthAt(u, size, rr));
+        s.c.push(tint(color, ageT, u, rr));
+      });
+      strips.push(s);
+    };
+    for (const q of this.particles) {
+      if (!q.trail) continue;
+      const t = q.age / q.life;
+      this._particleSize(q, t, sz);
+      this._particleColor(q, t, c);
+      add(q.trail, q.p, sz[0], c, t, q.rr);
+    }
+    for (const o of this.orphans || []) add(o.trail, o.p, o.size, o.color, 1, o.rr);
+    return strips;
+  }
+
+  _renderTrails() {
+    if (!this.d.TrailModule?.enabled && !this.trailMesh) return;
+    const strips = this._trailStrips();
+    let verts = 0;
+    for (const s of strips) verts += s.pts.length * 2;
+    if (!verts) {
+      if (this.trailMesh) this.trailMesh.geometry.setDrawRange(0, 0);
+      return;
+    }
+    const mesh = this._ensureTrailMesh();
+    if (!mesh) return;
+    this._trailBuffers(verts);
+    mesh.visible = this.gameObject.activeInHierarchy;
+    if (this.worldSpace) mesh.matrix.identity();
+    else this._simMatrix(mesh.matrix);
+    mesh.matrixWorldNeedsUpdate = true;
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position.array;
+    const uv = geo.attributes.uv.array;
+    const col = geo.attributes.color.array;
+    const idx = geo.index.array;
+    let v = 0;
+    let ii = 0;
+    for (const s of strips) {
+      const n = s.pts.length;
+      const v0 = v;
+      for (let i = 0; i < n; i++) {
+        const p = s.pts[i];
+        const a = s.pts[Math.max(0, i - 1)];
+        const b = s.pts[Math.min(n - 1, i + 1)];
+        let tx = b.x - a.x;
+        let ty = b.y - a.y;
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl;
+        ty /= tl;
+        const hw = s.w[i] / 2;
+        const nx = -ty * hw;
+        const ny = tx * hw;
+        pos.set([p.x + nx, p.y + ny, p.z, p.x - nx, p.y - ny, p.z], v * 3);
+        // TrailTextureMode.Stretch: u runs along the whole trail
+        const u = i / (n - 1);
+        uv.set([u, 1, u, 0], v * 2);
+        col.set(s.c[i], v * 4);
+        col.set(s.c[i], v * 4 + 4);
+        if (i > 0) {
+          const k = v0 + (i - 1) * 2;
+          idx.set([k, k + 1, k + 2, k + 1, k + 3, k + 2], ii);
+          ii += 6;
+        }
+        v += 2;
+      }
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.uv.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+    geo.index.needsUpdate = true;
+    geo.setDrawRange(0, ii);
   }
 }
 
+const UV01 = [0, 0, 1, 1];
+const _back = new THREE.Vector3();
 const _mv = new THREE.Matrix4();
 const _pv = new THREE.Vector3();
 const _im = new THREE.Matrix4();
 const _iq = new THREE.Quaternion();
+const _ie = new THREE.Euler();
 const _is = new THREE.Vector3();
 const _ip = new THREE.Vector3();
-const _iz = new THREE.Vector3(0, 0, 1);
-
-ParticleSystem.prototype._renderInstances = function (mesh) {
-  const sizeM = this.d.SizeModule;
-  let n = 0;
-  for (const q of this.particles) {
-    let s = q.size;
-    if (sizeM?.enabled) s *= evalCurve(sizeM.curve, q.age / q.life, q.rr);
-    _iq.setFromAxisAngle(_iz, q.rot || 0);
-    _is.set(s, s, s);
-    _im.compose(_ip.copy(q.p), _iq, _is);
-    mesh.setMatrixAt(n++, _im);
-  }
-  mesh.count = n;
-  mesh.instanceMatrix.needsUpdate = true;
-};
 
 export class ParticleSystemRenderer extends Behaviour {
   static typeName = 'ParticleSystemRenderer';

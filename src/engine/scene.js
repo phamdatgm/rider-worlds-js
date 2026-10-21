@@ -344,7 +344,7 @@ export class GameObject {
     } else {
       for (const c of this.components) c._deactivate();
     }
-    for (const ch of this.transform.children) {
+    for (const ch of this.transform.children.slice()) {
       if (ch.gameObject.activeSelf) ch.gameObject._propagateActive(active);
     }
   }
@@ -566,7 +566,8 @@ export function awakeObject(go) {
     if (c instanceof Behaviour) c._activate();
     else c._activate();
   }
-  for (const ch of go.transform.children) awakeObject(ch.gameObject);
+  // snapshot: an Awake may reparent its object (e.g. FakeFloor.SetParent(null)), which would skip the next sibling
+  for (const ch of go.transform.children.slice()) awakeObject(ch.gameObject);
 }
 
 export function Destroy(obj, delay = 0) {

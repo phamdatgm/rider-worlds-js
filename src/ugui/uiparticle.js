@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Assets, getTexture, getWhiteTexture } from '../engine/assets.js';
 import { registerComponent } from '../engine/instantiate.js';
 import { Graphic, UIMesh, Color } from './graphic.js';
-import { evalCurve, evalGradient, sheetUV } from '../engine/particles.js';
+import { sheetUV } from '../engine/particles.js';
 
 const ADDITIVE_SHADERS = new Set(['UI_Additive', 'builtin:10720:0000000000000000f000000000000000', 'Shader Graphs_Particle_ZTest_Additive', 'Shader Graphs_Particle_Emission']);
 
@@ -157,47 +157,45 @@ export class UIParticle extends Graphic {
     _q.setFromRotationMatrix(world);
     const rel = _v.setFromMatrixPosition(world).applyMatrix4(rootInv).clone();
     const rot = _q.clone();
-    const sizeM = ps.d.SizeModule;
-    const colM = ps.d.ColorModule;
-    const colG = ps.colorOverride || (colM?.enabled ? colM.gradient : null);
     const stretch = r.renderMode === 1;
     const tint = mat.tint;
     const cc = [1, 1, 1, 1];
+    const sz = [1, 1, 1];
     const p = new THREE.Vector3();
     for (const q of ps.particles) {
       const t = q.age / q.life;
-      let s = q.size;
-      if (sizeM?.enabled) s *= evalCurve(sizeM.curve, t, q.rr);
+      ps._particleSize(q, t, sz);
       if (ps.worldSpace) p.copy(q.p).applyMatrix4(rootInv);
       else p.copy(q.p).applyQuaternion(rot).add(rel);
       const cx = p.x * K.x;
       const cy = p.y * K.y;
-      const h = (s / 2) * K.x;
-      let ax = h;
+      const hw = (sz[0] / 2) * K.x;
+      const hh = (sz[1] / 2) * K.x;
+      let ax = hw;
       let ay = 0;
       let bx = 0;
-      let by = h;
+      let by = hh;
       if (stretch) {
-        const vl = Math.hypot(q.v.x, q.v.y) || 1e-5;
-        const ux = q.v.x / vl;
-        const uy = q.v.y / vl;
-        const len = h * (r.lengthScale ?? 2) + vl * K.x * (r.velocityScale ?? 0) * 0.5;
+        const v = q.vt || q.v;
+        const vl = Math.hypot(v.x, v.y) || 1e-5;
+        const ux = v.x / vl;
+        const uy = v.y / vl;
+        const len = hw * (r.lengthScale ?? 2) + vl * K.x * (r.velocityScale ?? 0) * 0.5;
         ax = ux * len;
         ay = uy * len;
-        bx = -uy * h;
-        by = ux * h;
+        bx = -uy * hh;
+        by = ux * hh;
       } else if (q.rot) {
         // Unity particle rotation is clockwise for positive angles on screen
         const cs = Math.cos(-q.rot);
         const sn = Math.sin(-q.rot);
-        ax = cs * h;
-        ay = sn * h;
-        bx = -sn * h;
-        by = cs * h;
+        ax = cs * hw;
+        ay = sn * hw;
+        bx = -sn * hh;
+        by = cs * hh;
       }
-      if (colG) evalGradient(colG, t, q.rr, cc);
-      else cc[0] = cc[1] = cc[2] = cc[3] = 1;
-      const col = new Color(q.color[0] * cc[0] * tint.r, q.color[1] * cc[1] * tint.g, q.color[2] * cc[2] * tint.b, q.color[3] * cc[3] * tint.a);
+      ps._particleColor(q, t, cc);
+      const col = new Color(cc[0] * tint.r, cc[1] * tint.g, cc[2] * tint.b, cc[3] * tint.a);
       const i = mesh.vertCount;
       const uv = sheetUV(ps, q) || UV01;
       mesh.addVert(cx - ax - bx, cy - ay - by, col, uv[0], uv[1]);
