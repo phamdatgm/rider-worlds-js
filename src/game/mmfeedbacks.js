@@ -8,6 +8,7 @@ import { Instantiate, registerComponent } from '../engine/instantiate.js';
 const curve = (c, def) => (c instanceof AnimationCurve ? c : def || AnimationCurve.Linear(0, 0, 1, 1));
 /** Unity Vector3 field -> our mirrored space */
 const u3 = (a) => (Array.isArray(a) ? new THREE.Vector3(a[0] || 0, a[1] || 0, -(a[2] || 0)) : a ? a.clone() : new THREE.Vector3());
+const screenKey = () => `${window.innerWidth}x${window.innerHeight}`;
 const remap = (x, a, b, c, d) => c + ((x - a) * (d - c)) / (b - a);
 
 /** Global feedback events (camera shake, flash, freeze frame) the camera/HUD listen to. */
@@ -653,6 +654,12 @@ export class MMFeedbackPosition extends MMFeedback {
     if (this.DeterminePositionsOnPlay && this.RelativePosition && this._initPos.lengthSq() > 0) return;
     if (this.Mode === 2) return;
     const tgt = this.AnimatePositionTarget.transform;
+    // world positions of UI elements are screen pixels: remember the screen size and the target's resting layout
+    // so a resized window (never happens on the mobile original) can re-determine them on the next play
+    if (this.Space === 0 && tgt.isRectTransform) {
+      this._screenKey = screenKey();
+      this._restAnchored ??= tgt.anchoredPosition.clone();
+    }
     if (this.InitialPositionTransform) this.InitialPositionV = this.GetPosition(this.InitialPositionTransform);
     else this.InitialPositionV = this.RelativePosition ? this.GetPosition(tgt).add(this._initPos) : this.GetPosition(tgt);
     if (this.DestinationPositionTransform) this.DestinationPositionV = this.GetPosition(this.DestinationPositionTransform);
@@ -662,6 +669,11 @@ export class MMFeedbackPosition extends MMFeedback {
   CustomPlayFeedback(position, intensity = 1) {
     if (!this.Active || !this.AnimatePositionTarget) return;
     if (this.DeterminePositionsOnPlay && this.NormalPlayDirection) this.DeterminePositions();
+    else if (this._screenKey && this._screenKey !== screenKey() && !(this._co && !this._co.done)) {
+      // the window was resized since the positions were taken: put the target back in its layout slot first
+      this.AnimatePositionTarget.transform.anchoredPosition = this._restAnchored.clone();
+      this.DeterminePositions();
+    }
     const tgt = this.AnimatePositionTarget;
     if (this.Mode === 2) {
       const a = this.GetPosition(tgt.transform);
