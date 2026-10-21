@@ -1,0 +1,8 @@
+node_modules
+dist
+export.log
+tools/__pycache__
+*.apk
+__pycache__/
+*.log
+.env

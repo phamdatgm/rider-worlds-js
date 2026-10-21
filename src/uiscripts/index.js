@@ -1,0 +1,20 @@
+// Ported UI scripts of the Unity project (registered by their C# class names).
+import './common.js';
+import './services.js';
+import './scenes.js';
+import './home.js';
+import './settings.js';
+import './debug.js';
+import './rewards.js';
+import './rank.js';
+import './mmfplayer.js';
+import './challenges.js';
+import './levels.js';
+import './worldstats.js';
+import './garage.js';
+import './hud.js';
+import './revive.js';
+import './tutorials.js';
+import './rendertexture.js';
+import './shop.js';
+import './lootbox.js';

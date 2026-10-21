@@ -1,0 +1,1 @@
+{"$type":"AtlasLookups","m_Enabled":1,"atlas":{"$so":"Resources/sprite assets/S_TextSprites"},"lookups":[{"key":"Hard","value":"Gem"},{"key":"Soft","value":"Coin"},{"key":"Star","value":"Star"}],"$name":"AtlasLookups","$fid":11400000}

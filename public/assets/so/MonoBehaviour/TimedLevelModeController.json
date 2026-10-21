@@ -1,0 +1,1 @@
+{"$type":"TimedLevelModeController","m_Enabled":1,"settings":{"collection":{"$so":"MonoBehaviour/Timed Level Mode Collection"},"jumpBonusTimeReduction":{"perFlip":0.25,"perfectMultiplier":2}},"$name":"TimedLevelModeController","$fid":11400000}

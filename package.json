@@ -1,0 +1,20 @@
+{
+  "name": "rider-worlds-js",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "export-assets": "python tools/export.py && python tools/export_meta.py && python tools/export_ui_extra.py && python tools/export_anim.py && python tools/tmp_dynamic.py"
+  },
+  "dependencies": {
+    "planck": "^1.5.1",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.43.1",
+    "vite": "^8.3.4"
+  }
+}

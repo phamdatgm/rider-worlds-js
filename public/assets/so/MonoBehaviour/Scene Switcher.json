@@ -1,0 +1,1 @@
+{"$type":"SceneSwitcher","m_Enabled":1,"menuState":{"$so":"MonoBehaviour/Menu State"},"firstRunTutorial":{"$so":"MonoBehaviour/FirstRunTutorial"},"runState":{"$so":"MonoBehaviour/Run State"},"menuUnloadDelayWhenGameStartedFromMenu":0.5,"$name":"Scene Switcher","$fid":11400000}

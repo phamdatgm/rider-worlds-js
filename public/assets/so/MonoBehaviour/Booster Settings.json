@@ -1,0 +1,1 @@
+{"$type":"BoosterSettings","m_Enabled":1,"boostersPerRunmode":[{"mode":1,"boosterIDs":"000000000100000002000000"},{"mode":8,"boosterIDs":"e8030000e9030000ea030000"}],"xpMultiplier_XpUp":0,"xpPerGem_GemToXp":0,"gemsPerFlip_FlipToGem":1,"magnetRange_Magnet":10,"bigSoftCurrInterval_GemFinder":10,"hardCurrInterval_RubyFinder":20,"$name":"Booster Settings","$fid":11400000}
