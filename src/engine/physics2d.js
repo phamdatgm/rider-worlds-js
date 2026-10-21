@@ -621,6 +621,9 @@ export class Rigidbody2D extends Component {
       const p = this.transform.position;
       return new THREE.Vector2(p.x, p.y);
     }
+    // Physics2D.autoSyncTransforms is on in the project: a transform moved by a script (e.g. a chunk translated
+    // to its spawn point) is seen right away, not only after the next step
+    this.syncFromTransform();
     const p = this.body.getPosition();
     return new THREE.Vector2(p.x, p.y);
   }
@@ -634,7 +637,9 @@ export class Rigidbody2D extends Component {
   }
 
   get rotation() {
-    return this.body ? this.body.getAngle() * Rad2Deg : eulerZ(this.transform.rotation);
+    if (!this.body) return eulerZ(this.transform.rotation);
+    this.syncFromTransform();
+    return this.body.getAngle() * Rad2Deg;
   }
 
   set rotation(deg) {
