@@ -664,6 +664,23 @@ export class ParticleSystem extends Behaviour {
     this._renderTrails();
   }
 
+  /**
+   * Frame used to place a system's particles. ParticleSystemRenderer.renderAlignment View (0), World (1) and
+   * Facing (3) orient particles by the camera, so local-space systems only move their positions through the
+   * system matrix; Local (2) keeps the whole transform (the mesh matrix). Returns null for the Local case.
+   */
+  _viewFrame() {
+    const cam = Render.camera;
+    cam.updateMatrixWorld();
+    cam.getWorldQuaternion(_cq);
+    _cr.set(1, 0, 0).applyQuaternion(_cq);
+    _cu.set(0, 1, 0).applyQuaternion(_cq);
+    if (this.worldSpace || this.renderer.renderAlignment === 2) return this.worldSpace ? { sim: null } : null;
+    this._simMatrix(_sm).decompose(_sp, _sq, _ss);
+    _ss.set(Math.abs(_ss.x), Math.abs(_ss.y), Math.abs(_ss.z));
+    return { sim: _sm };
+  }
+
   _renderParticles() {
     const ps = this.particles;
     if (!ps.length) {
@@ -676,17 +693,22 @@ export class ParticleSystem extends Behaviour {
     const mesh = this._ensureMesh();
     if (!mesh) return;
     mesh.visible = this.gameObject.activeInHierarchy;
-    if (this.worldSpace) mesh.matrix.identity();
+    const frame = this._viewFrame();
+    if (frame) mesh.matrix.identity();
     else this._simMatrix(mesh.matrix);
     mesh.matrixWorldNeedsUpdate = true;
     const r = this.renderer;
-    if (mesh.userData.instanced) return this._renderInstances(mesh);
+    if (mesh.userData.instanced) return this._renderInstances(mesh, frame);
     const stretch = r.renderMode === 1;
     const pos = mesh.geometry.attributes.position.array;
     const col = mesh.geometry.attributes.color.array;
     const uvs = mesh.geometry.attributes.uv.array;
     const c = [1, 1, 1, 1];
     const sz = [1, 1, 1];
+    // quad axes: camera right/up for view-aligned particles, the system's local X/Y otherwise
+    const R = frame ? _cr : _ux;
+    const U = frame ? _cu : _uy;
+    const sim = frame?.sim;
     // ParticleSystemRenderer.maxParticleSize: size limited to a fraction of the viewport height
     const cam = Render.camera;
     const maxSize = r.maxParticleSize;
@@ -696,10 +718,11 @@ export class ParticleSystem extends Behaviour {
     for (const q of ps) {
       const t = q.age / q.life;
       this._particleSize(q, t, sz);
-      let w = sz[0];
-      let hgt = sz[1];
+      const P = sim ? _pc.copy(q.p).applyMatrix4(sim) : _pc.copy(q.p);
+      let w = sz[0] * (sim ? _ss.x : 1);
+      let hgt = sz[1] * (sim ? _ss.y : 1);
       if (toView) {
-        const depth = -_pv.copy(q.p).applyMatrix4(toView).z;
+        const depth = -_pv.copy(P).applyMatrix4(toView).z;
         if (depth > 0) {
           const lim = maxSize * 2 * depth * tanHalf;
           const k = Math.min(1, lim / Math.max(w, hgt, 1e-6));
@@ -714,10 +737,14 @@ export class ParticleSystem extends Behaviour {
       let bx = 0;
       let by = hh;
       if (stretch) {
-        const v = q.vt;
-        const vl = Math.hypot(v.x, v.y) || 1e-5;
-        const ux = v.x / vl;
-        const uy = v.y / vl;
+        // velocity in the quad plane (world velocity projected on the camera axes for view-aligned systems)
+        const v = _vv.copy(q.vt);
+        if (sim) v.applyQuaternion(_sq).multiply(_ss);
+        const vx = frame ? v.dot(R) : v.x;
+        const vy = frame ? v.dot(U) : v.y;
+        const vl = Math.hypot(vx, vy) || 1e-5;
+        const ux = vx / vl;
+        const uy = vy / vl;
         const len = hw * (r.lengthScale ?? 2) + vl * (r.velocityScale ?? 0) * 0.5;
         ax = ux * len;
         ay = uy * len;
@@ -732,22 +759,16 @@ export class ParticleSystem extends Behaviour {
         bx = -sn * hh;
         by = cs * hh;
       }
+      const corner = (o, cx, cy) => {
+        pos[o] = P.x + R.x * cx + U.x * cy;
+        pos[o + 1] = P.y + R.y * cx + U.y * cy;
+        pos[o + 2] = P.z + R.z * cx + U.z * cy;
+      };
       const o = n * 12;
-      const x = q.p.x;
-      const y = q.p.y;
-      const z = q.p.z;
-      pos[o] = x - ax - bx;
-      pos[o + 1] = y - ay - by;
-      pos[o + 2] = z;
-      pos[o + 3] = x + ax - bx;
-      pos[o + 4] = y + ay - by;
-      pos[o + 5] = z;
-      pos[o + 6] = x + ax + bx;
-      pos[o + 7] = y + ay + by;
-      pos[o + 8] = z;
-      pos[o + 9] = x - ax + bx;
-      pos[o + 10] = y - ay + by;
-      pos[o + 11] = z;
+      corner(o, -ax - bx, -ay - by);
+      corner(o + 3, ax - bx, ay - by);
+      corner(o + 6, ax + bx, ay + by);
+      corner(o + 9, -ax + bx, -ay + by);
       const uv = sheetUV(this, q) || UV01;
       uvs.set([uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], n * 8);
       this._particleColor(q, t, c);
@@ -760,10 +781,11 @@ export class ParticleSystem extends Behaviour {
     mesh.geometry.setDrawRange(0, n * 6);
   }
 
-  _renderInstances(mesh) {
+  _renderInstances(mesh, frame) {
     const col = mesh.geometry.attributes.color;
     const c = [1, 1, 1, 1];
     const sz = [1, 1, 1];
+    const sim = frame?.sim;
     let n = 0;
     for (const q of this.particles) {
       const t = q.age / q.life;
@@ -771,8 +793,13 @@ export class ParticleSystem extends Behaviour {
       // Unity euler (x, y, z) -> mirrored space (-x, -y, z), applied Z, X, Y like Unity
       _ie.set(-q.rx, -q.ry, q.rot || 0, 'YXZ');
       _iq.setFromEuler(_ie);
+      // view-aligned meshes are rotated in camera space; Local ones inherit the system transform via mesh.matrix
+      if (frame) _iq.premultiply(_cq);
       _is.set(sz[0], sz[1], sz[2]);
-      _im.compose(_ip.copy(q.p), _iq, _is);
+      if (sim) _is.multiply(_ss);
+      _ip.copy(q.p);
+      if (sim) _ip.applyMatrix4(sim);
+      _im.compose(_ip, _iq, _is);
       mesh.setMatrixAt(n, _im);
       this._particleColor(q, t, c);
       col.array.set(c, n * 4);
@@ -783,7 +810,7 @@ export class ParticleSystem extends Behaviour {
     col.needsUpdate = true;
   }
 
-  // ---- trails: ParticleSystemRenderer trail material (m_Materials[1]), strips in the XY plane
+  // ---- trails: ParticleSystemRenderer trail material (m_Materials[1]), camera-facing strips
   _ensureTrailMesh() {
     if (this.trailMesh) return this.trailMesh;
     const r = this.renderer;
@@ -892,9 +919,12 @@ export class ParticleSystem extends Behaviour {
     if (!mesh) return;
     this._trailBuffers(verts);
     mesh.visible = this.gameObject.activeInHierarchy;
-    if (this.worldSpace) mesh.matrix.identity();
-    else this._simMatrix(mesh.matrix);
+    // trails are built in world space and face the camera (local-space points go through the system matrix)
+    mesh.matrix.identity();
     mesh.matrixWorldNeedsUpdate = true;
+    this._viewFrame();
+    const sim = this.worldSpace ? null : this._simMatrix(_sm);
+    const W = (p) => (sim ? new THREE.Vector3(p.x, p.y, p.z).applyMatrix4(sim) : p);
     const geo = mesh.geometry;
     const pos = geo.attributes.position.array;
     const uv = geo.attributes.uv.array;
@@ -905,19 +935,25 @@ export class ParticleSystem extends Behaviour {
     for (const s of strips) {
       const n = s.pts.length;
       const v0 = v;
+      const pts = s.pts.map(W);
       for (let i = 0; i < n; i++) {
-        const p = s.pts[i];
-        const a = s.pts[Math.max(0, i - 1)];
-        const b = s.pts[Math.min(n - 1, i + 1)];
-        let tx = b.x - a.x;
-        let ty = b.y - a.y;
+        const p = pts[i];
+        const a = pts[Math.max(0, i - 1)];
+        const b = pts[Math.min(n - 1, i + 1)];
+        // tangent in the camera plane, the strip widens along its perpendicular
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dz = b.z - a.z;
+        let tx = dx * _cr.x + dy * _cr.y + dz * _cr.z;
+        let ty = dx * _cu.x + dy * _cu.y + dz * _cu.z;
         const tl = Math.hypot(tx, ty) || 1;
         tx /= tl;
         ty /= tl;
         const hw = s.w[i] / 2;
-        const nx = -ty * hw;
-        const ny = tx * hw;
-        pos.set([p.x + nx, p.y + ny, p.z, p.x - nx, p.y - ny, p.z], v * 3);
+        const ox = (-ty * _cr.x + tx * _cu.x) * hw;
+        const oy = (-ty * _cr.y + tx * _cu.y) * hw;
+        const oz = (-ty * _cr.z + tx * _cu.z) * hw;
+        pos.set([p.x + ox, p.y + oy, p.z + oz, p.x - ox, p.y - oy, p.z - oz], v * 3);
         // TrailTextureMode.Stretch: u runs along the whole trail
         const u = i / (n - 1);
         uv.set([u, 1, u, 0], v * 2);
@@ -941,6 +977,17 @@ export class ParticleSystem extends Behaviour {
 
 const UV01 = [0, 0, 1, 1];
 const _back = new THREE.Vector3();
+const _cq = new THREE.Quaternion();
+const _cr = new THREE.Vector3();
+const _cu = new THREE.Vector3();
+const _ux = new THREE.Vector3(1, 0, 0);
+const _uy = new THREE.Vector3(0, 1, 0);
+const _sm = new THREE.Matrix4();
+const _sp = new THREE.Vector3();
+const _sq = new THREE.Quaternion();
+const _ss = new THREE.Vector3();
+const _pc = new THREE.Vector3();
+const _vv = new THREE.Vector3();
 const _mv = new THREE.Matrix4();
 const _pv = new THREE.Vector3();
 const _im = new THREE.Matrix4();
@@ -961,6 +1008,7 @@ export class ParticleSystemRenderer extends Behaviour {
     r.velocityScale = d.m_VelocityScale ?? 0;
     r.maxParticleSize = d.m_MaxParticleSize ?? 0.5;
     r.sortingOrder = d.m_SortingOrder || 0;
+    r.renderAlignment = d.m_RenderAlignment || 0; // View, World, Local, Facing, Velocity
   }
 
   _activate() {
