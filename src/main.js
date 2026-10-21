@@ -28,33 +28,37 @@ import { UISprites, initUGUI } from './ugui/index.js';
 import './uiscripts/index.js';
 import { SceneHost, TransitionScreen, getSceneSwitcher, EndlessModeID, TimedLevelModeID } from './uiscripts/scenes.js';
 import { UIState, WorldManager } from './uiscripts/services.js';
+import { noticeOk, halt } from './notice.js';
+import { showLoading, hideLoading } from './loading.js';
+import { initI18n, t } from './sdk/i18n.js';
+import { startPortal, trackRuns, menuReady } from './portal.js';
 
 for (const cls of [Rigidbody2D, BoxCollider2D, CircleCollider2D, PolygonCollider2D, EdgeCollider2D, CapsuleCollider2D, WheelJoint2D, MeshFilter, MeshRenderer, SkinnedMeshRenderer, SpriteRenderer, Light, ParticleSystem, ParticleSystemRenderer, MMAutoDestroyParticleSystem]) {
   registerComponent(cls, cls.typeName);
 }
 
-// ---------------------------------------------------------------- boot screen (until the first scene is up)
+// ---------------------------------------------------------------- loading screen (GM Loader in index.html, until the first scene is up)
 
 const boot = {
-  el: null,
-  bar: null,
-  show() {
-    this.el = document.createElement('div');
-    this.el.id = 'boot';
-    this.el.innerHTML = '<div class="bar"><i></i></div>';
-    document.body.appendChild(this.el);
-    this.bar = this.el.querySelector('i');
+  progress: showLoading,
+  /** the kit's load error: the English fallback covers a failed Language/en.json */
+  error() {
+    const el = document.getElementById('gmLoader');
+    const text = document.getElementById('load-text');
+    if (!el || !text) return;
+    el.hidden = false;
+    el.classList.add('gmIsLoading');
+    el.classList.remove('gmAlmost');
+    text.textContent = '';
+    const msg = document.createElement('div');
+    const lf = t('load_failed');
+    msg.textContent = lf === 'load_failed' ? "Couldn't load the game. Please check your internet connection and try again." : lf;
+    const btn = document.createElement('button');
+    btn.textContent = t('try_again') === 'try_again' ? 'Try again' : t('try_again');
+    btn.onclick = () => location.reload();
+    text.append(msg, btn);
   },
-  progress(p) {
-    if (this.bar) this.bar.style.width = `${Math.round(p * 100)}%`;
-  },
-  error(msg) {
-    if (this.el) this.el.innerHTML = `<p>${msg}</p>`;
-  },
-  hide() {
-    this.el?.remove();
-    this.el = null;
-  },
+  hide: hideLoading,
 };
 
 // ---------------------------------------------------------------- scene host
@@ -95,13 +99,21 @@ Game.onEndlessOver = (mode) => {
 Game.onLevelOver = () => getSceneSwitcher().ReturnToMainMenu();
 
 async function main() {
+  // docs/BUILD_RULES.md section 1: the copyright line is locked by its hash
+  if (!noticeOk()) {
+    halt();
+    return;
+  }
+  // GMGameSDK + analytics + leaderboard sign-in run while the assets load
+  const sdkReady = startPortal();
   const canvas = document.getElementById('game');
-  boot.show();
   try {
+    await initI18n();
     await loadCore((p) => boot.progress(p * 0.5));
     await UISprites.load();
   } catch (e) {
-    boot.error(`Failed to load assets: ${e.message}. Run "npm run export-assets" first.`);
+    console.error(`Failed to load assets: ${e.message}. Run "npm run export-assets" first.`);
+    boot.error();
     throw e;
   }
   boot.progress(0.6);
@@ -113,6 +125,7 @@ async function main() {
   initUGUI(canvas);
   const runState = getRuntimeSO('MonoBehaviour/Run State');
   await initMeta(runState);
+  trackRuns(runState);
   applySettings(Save.data.settings);
   LoopHooks.beforeUpdate.push(() => Tutorials.Update());
 
@@ -150,8 +163,10 @@ async function main() {
   // SceneSwitcher.LoadAppStart (Menu + MainGame, or straight into the first-run tutorial)
   Coroutines.start(getSceneSwitcher().LoadAppStart(), null);
   const hideBoot = () => {
-    if (Game.manager && !getSceneSwitcher().menuStateSO.isSceneTransitioning) boot.hide();
-    else requestAnimationFrame(hideBoot);
+    if (Game.manager && !getSceneSwitcher().menuStateSO.isSceneTransitioning) {
+      boot.hide();
+      menuReady(sdkReady);
+    } else requestAnimationFrame(hideBoot);
   };
   hideBoot();
 }

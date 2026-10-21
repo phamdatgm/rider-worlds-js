@@ -1,0 +1,17 @@
+{
+  "load_failed": "Couldn't load the game. Please check your internet connection and try again.",
+  "try_again": "Try again",
+  "leaderboard": "Leaderboard",
+  "lb_today": "Today",
+  "lb_week": "Week",
+  "lb_month": "Month",
+  "lb_alltime": "All time",
+  "lb_rank": "Rank",
+  "lb_name": "Name",
+  "lb_score": "Score",
+  "lb_loading": "Loading...",
+  "lb_failed": "Couldn't load the leaderboard. Check your connection and try again.",
+  "lb_empty": "No scores yet. Play Endless to be the first!",
+  "lb_your_name": "Your name",
+  "lb_pick_flag": "Choose your flag"
+}

@@ -1,8 +1,12 @@
-// Persistent save (localStorage). One JSON document holding what the Unity build kept in its save slots
+// Persistent save. One JSON document holding what the Unity build kept in its save slots
 // (currencies, cards, rank, reward tracks, challenges, worlds, levels, high scores, tutorials, settings).
+// It is the "save" area of the SDK's single localStorage key azgames.<gameCode> (src/sdk/storage.js, the only
+// module allowed to touch localStorage). The pre-SDK keys rider-worlds-save-v2 / -v1 are folded in once as the
+// "save" / "saveV1" areas (src/config.mjs legacyKeys).
+import { gameData } from '../sdk/storage.js';
 
-const SAVE_KEY = 'rider-worlds-save-v2';
-const OLD_KEY = 'rider-worlds-save-v1';
+const AREA = 'save';
+const OLD_AREA = 'saveV1';
 
 function defaults() {
   return {
@@ -33,16 +37,12 @@ export const Save = {
   dirty: false,
 
   load() {
-    let s = null;
-    try {
-      s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      if (!s) {
-        const old = JSON.parse(localStorage.getItem(OLD_KEY) || 'null');
-        if (old) s = migrateV1(old);
-      }
-    } catch {
-      /* private mode / corrupted */
+    let s = gameData.get(AREA, null);
+    if (!Object.keys(s).length) {
+      const old = gameData.get(OLD_AREA, null);
+      s = Object.keys(old).length ? migrateV1(old) : null;
     }
+    if (Object.keys(gameData.get(OLD_AREA)).length) gameData.set(OLD_AREA, undefined);
     const d = defaults();
     if (s) {
       for (const k of Object.keys(s)) d[k] = s[k];
@@ -56,11 +56,7 @@ export const Save = {
 
   save() {
     this.dirty = false;
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(this.data));
-    } catch {
-      /* ignore */
-    }
+    gameData.set(AREA, this.data);
   },
 
   /** batch writes: flushed at the end of the frame */
@@ -71,12 +67,9 @@ export const Save = {
   },
 
   reset() {
-    try {
-      localStorage.removeItem(SAVE_KEY);
-      localStorage.removeItem(OLD_KEY);
-    } catch {
-      /* ignore */
-    }
+    gameData.set(AREA, undefined);
+    gameData.set(OLD_AREA, undefined);
+    gameData.flush();
     this.data = defaults();
   },
 

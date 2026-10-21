@@ -1,0 +1,7 @@
+{
+  "play": "Play",
+  "settings": "Settings",
+  "language": "Language",
+  "load_failed": "Couldn't load the game. Please check your internet connection and try again.",
+  "try_again": "Try again"
+}

@@ -15,7 +15,8 @@ Bản chuyển đổi project Unity `D:\SourceGame\09\rider-worlds` sang web, g�
 npm install
 npm run export-assets   # (chỉ cần khi dữ liệu Unity thay đổi) Python 3 + numpy + PyYAML + Pillow
 npm run dev             # http://localhost:5173
-npm run build           # bản production trong dist/
+npm run build           # bản phát hành cho portal azgames.io trong Build/<version>/ (JS_SDK_2.0)
+npm run build:web       # bản Vite thường trong dist/ (không có vỏ portal)
 npm run smoke           # smoke test headless (cần `npm run dev` đang chạy), ảnh + log trong smoke-out/
 ```
 
@@ -24,6 +25,27 @@ mã lỗi 1 nếu trang có exception. Chrome được tìm ở vị trí mặc 
 
 Điều khiển: giữ chuột / chạm / Space / ↑ để tăng tốc trên mặt đất và lộn (flip) khi ở trên không. `Esc`/`P` tạm dừng, `R` chơi lại.
 Cài đặt (nút bánh răng) có nút **Reset progress** để xoá save và chơi lại từ tutorial.
+
+## SDK portal (azgames.io / GMSDK)
+
+Game dùng kit `JS_SDK_2.0/` (build + analytics) và bộ leaderboard `src/leaderboard/` (từ JS_Leaderboard).
+
+| Mục | Giá trị | Chỉnh ở đâu |
+|---|---|---|
+| Tên game | Rider Worlds | `JS_SDK_2.0/config.mjs` + `src/config.mjs`: gameName |
+| Game ID (SDK) | rider-worlds-az | `JS_SDK_2.0/config.mjs`, `src/config.mjs`, `AZ_SETTINGS.gameId` trong `index.html` |
+| Mã game | G2610211044 → localStorage `azgames.g2610211044` | `gameCode` ở hai file config + `AZ_SETTINGS.gameCode` |
+| Leaderboard | leaderboard-highscore | `src/leaderboard/config.mjs` |
+| Version / bản quyền | V1.0 · © 2026 Azgames.io (popup Settings của Menu) | `src/config.mjs`: appVersion, notice (đổi notice thì chạy `node JS_SDK_2.0/tools/notice-hash.mjs`) |
+
+- `src/portal.js`: khởi động SDK, bộ sự kiện chuẩn (`loaded_game`, `PlayGame`, `LiveTime`, `SessionTime`, `EndGame`/`DeathTime`,
+  `CompleteGame`/`CompleteTime`, `QuitTime`, `RestartTime`, `run_start`, `run_end`), gửi điểm mỗi ván Endless (mọi world chung một
+  bảng) và nút LEADERBOARD trên màn Home (dựng từ dữ liệu nút Challenges).
+- `src/leaderboard/ui/leaderboardPopup.js`: popup bảng xếp hạng (DOM, style `.lb-*` trong `src/style.css`), đổi tên + cờ.
+- Save nằm trong vùng `save` của key `azgames.<gameCode>` qua `src/sdk/storage.js` (file duy nhất được chạm `localStorage`);
+  save cũ `rider-worlds-save-v2`/`-v1` được gộp một lần (`legacyKeys` trong `src/config.mjs`).
+- Chữ cho người chơi của phần SDK nằm trong `Language/en.json`; `Icons/` là favicon + ảnh màn loading (GM Loader).
+- Bước nén audio và PNG → WebP của kit đang tắt (`JS_SDK_2.0/config.mjs`): audio là .ogg, tên PNG nằm trong JSON export.
 
 ## Cấu trúc
 

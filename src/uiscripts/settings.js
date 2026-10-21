@@ -7,6 +7,7 @@ import { applySettings } from '../game/settings.js';
 import { DeathReason, EndState, RunMode } from '../game/state.js';
 import { AudioSampleID, MusicManager } from './services.js';
 import { getSceneSwitcher } from './scenes.js';
+import { NOTICE, APP_VERSION, noticeOk, halt } from '../notice.js';
 
 /** GlobalSavedSettings */
 export const GlobalSavedSettings = {
@@ -126,6 +127,13 @@ export class UI_PauseMenu extends MonoBehaviour {
     this.resumeBtn?.onClick.AddListener(() => this.OnPressedResume());
     for (const b of this.closeButtons || []) b?.onClick.AddListener(() => this.OnPressedResume());
     this.UpdateVisualState();
+    // SDK footer (JS_SDK_2.0/docs/BUILD_RULES.md section 1): the Menu's Settings popup has the "cpr" text of the
+    // Unity build; it shows src/config.mjs appVersion + notice, the notice locked by its hash
+    const cpr = this.transform.Find('PausePopup/cpr')?.gameObject.GetComponent('TextMeshProUGUI');
+    if (cpr) {
+      cpr.text = `${APP_VERSION}\n${NOTICE}`;
+      if (!noticeOk(cpr.text.split('\n')[1])) halt();
+    }
   }
 
   OnDestroy() {

@@ -1,0 +1,160 @@
+<!-- JS_SDK 2.0 — the loading screen, ready to paste. Layout: azgames' "GM Loader v1" (sdk10/azgames_v1,
+     CrazyGames style), copied from the portal's own template kept in reference/azgames_v1/ (index.html + theme/game.css,
+     preview.html shows every state).
+
+     Four pieces, and all four must go in or the screen half-works:
+
+       0. the font <link>s below, into <head>
+       1. the CSS below, into <style> in index.html
+       2. the markup AND the small inline <script> below, into <body> as the FIRST elements
+       3. template/loading.js, at the very top of your entry module (ids: gmLoader, gmLoaderFill, load-text, load-version)
+
+     What it does — three states, set as classes on #gmLoader by loading.js:
+       (none)        spinner under the thumb + title, before the first file is counted
+       .gmIsLoading  the spinner gives way to the % bar ("<b>45%</b>"); the bar takes up to three strong colours of
+                     the key art (gmTintFromArt, the template's function, unchanged)
+       .gmAlmost     from 99%: "Almost there..." and the full bar shimmering while the first screen gets ready
+
+     What to change per game — three things, all in the markup:
+       - the title text in `.gmLoaderTitle` and the `alt` of `.gmLoaderThumb`
+       - `Icons/loading.webp` (used twice: blurred backdrop + thumb) -> the game's own key art
+       - nothing else. `azgames_logo.png` is the template's logo.png and transfers unchanged.
+
+     Things that make it work at all, and are easy to lose:
+
+     - **It is written into the PAGE, not built by the module.** It has to be on screen before a single line of the
+       bundle has run, which is the whole of what it is for.
+     - **The CSS is inlined, not linked from api.azgame.io.** A stylesheet fetched over the network belongs to the
+       network this screen exists to cover; inline it is styled on the first frame. Same for the logo: shipped in
+       assets/art/ rather than loaded from the CDN.
+     - **The CSS is scoped under #gmLoader.** The template's sheet also sets `html`, `body`, `*`, #gmGameContainer and
+       #gmGameCanvas — Unity page rules; in a canvas game the page is the game, and a loading screen must not restyle it.
+     - **The info line is invisible until .gmIsLoading.** Anything that writes an error into #load-text (the build's
+       "Connection problem", a "browser too old" fallback) must add that class too, or nobody sees it.
+     - **The version comes from one source.** `tools/build.mjs` stamps `GM_GAME.version`; the corner reads that same
+       field. Stamp it twice and the number on screen can disagree with the analytics dashboard.
+     - **Only the loading part of the template.** Its Unity loader, firebase scripts and gmPostToParent messages are
+       not part of this screen; the game keeps its own analytics (docs/ANALYTICS.md). -->
+
+<!-- ======================== 0. HEAD: FONT ======================== -->
+<!-- Nunito is the template's face. Only the loading screen uses it; a canvas game keeps its own. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+
+<!-- ============================ 1. CSS ============================ -->
+<!-- reference/azgames_v1/theme/game.css, loader rules only; :root variables moved onto #gmLoader -->
+<style>
+#gmLoader{--gm-font: "Nunito","Segoe UI",system-ui,-apple-system,Arial,sans-serif;--gm-bg:#0c0d14;--gm-track:#000000;--gm-white:#ffffff;--gm-muted:#8f90a6}
+#gmLoader,#gmLoader *,#gmLoader *::before,#gmLoader *::after{box-sizing:border-box}
+#gmLoader[hidden]{display:none}
+#gmLoader{position:fixed;font-family:var(--gm-font);color:var(--gm-white);-webkit-font-smoothing:antialiased;inset:0;z-index:10;overflow:hidden;background:var(--gm-bg);user-select:none;-webkit-user-select:none;--gm-c1:104,66,255;--gm-c2:140,96,255;--gm-c3:176,140,255}
+.gmLoaderBackdrop{position:absolute;inset:0;z-index:0;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(14px) brightness(.42) saturate(1.05);transform:scale(1.08)}
+.gmLoaderBackdrop::after{content:"";position:absolute;inset:0;background:radial-gradient(90% 80% at 50% 45%,rgba(12,13,20,.15),rgba(12,13,20,.55))}
+.gmLoaderStage{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center}
+.gmLoaderThumb{display:block;height:clamp(80px,20vh,200px);width:auto;max-width:min(80vw,400px);object-fit:cover;border-radius:clamp(6px,1.2vh,10px);box-shadow:0 8px 28px rgba(0,0,0,.45);background:#1a1b26;animation:gmFadeUp .4s ease-out both}
+.gmLoaderTitle{margin:clamp(10px,2.6vh,20px) 0 0;max-width:90vw;color:var(--gm-white);font-size:clamp(18px,4.6vh,34px);font-weight:800;line-height:1.2;letter-spacing:-.005em;text-shadow:0 2px 10px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;animation:gmFadeUp .4s .05s ease-out both}
+.gmLoaderProgress{position:relative;width:min(80vw,1010px);height:clamp(64px,13vh,96px);margin-top:clamp(14px,4.6vh,40px)}
+.gmLoaderSpinner{position:absolute;left:50%;top:0;width:clamp(32px,7vh,48px);height:clamp(32px,7vh,48px);margin-left:calc(clamp(32px,7vh,48px) / -2);border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.85);border-right-color:rgba(255,255,255,.85);animation:gmSpin .8s linear infinite}
+.gmLoaderBar,.gmLoaderInfo{opacity:0;transition:opacity .25s ease}
+.gmLoaderBar{width:100%;height:clamp(10px,2vh,14px);border-radius:999px;background:var(--gm-track);overflow:hidden}
+#gmLoaderFill{position:relative;width:0;height:100%;border-radius:999px;background:linear-gradient(90deg,rgb(var(--gm-c1)),rgb(var(--gm-c2)) 55%,rgb(var(--gm-c3))) 0 0 / min(80vw,1010px) 100% no-repeat rgb(var(--gm-c1));box-shadow:0 0 12px rgba(var(--gm-c1),.45);transition:width .25s ease;overflow:hidden}
+.gmLoaderInfo{margin-top:clamp(10px,2.2vh,16px);font-size:clamp(12px,2.4vh,16px);font-weight:600;line-height:1.2;color:var(--gm-white)}
+.gmLoaderInfo b{font-weight:800}
+#gmLoader.gmIsLoading .gmLoaderSpinner{display:none}
+#gmLoader.gmIsLoading .gmLoaderBar,#gmLoader.gmIsLoading .gmLoaderInfo{opacity:1}
+#gmLoader.gmAlmost #gmLoaderFill{width:100% !important}
+#gmLoader.gmAlmost #gmLoaderFill::after{content:"";position:absolute;top:0;bottom:0;left:0;width:52%;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.45) 60%,rgba(255,255,255,0));animation:gmAlmost 1.6s ease-in-out infinite}
+#gmLoader.gmAlmost .gmLoaderInfo{color:var(--gm-muted);font-weight:800;animation:gmBlink 1.6s ease-in-out infinite}
+.gmLoaderBrand{position:absolute;z-index:1;right:clamp(10px,2vw,22px);bottom:clamp(8px,1.8vw,18px);opacity:.9;pointer-events:none}
+.gmLoaderBrand img{display:block;height:clamp(30px,7.5vh,56px);width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.gmLoaderVersion{position:absolute;z-index:1;left:clamp(10px,2vw,22px);bottom:clamp(8px,1.8vw,18px);font:600 11px/1 var(--gm-font);letter-spacing:.06em;color:var(--gm-white);opacity:.4;pointer-events:none}
+@media (max-height:420px){.gmLoaderThumb{height:clamp(64px,26vh,120px)}
+.gmLoaderProgress{height:56px;margin-top:12px}
+.gmLoaderBrand img{height:28px}}
+@keyframes gmSpin{to{transform:rotate(360deg)}}
+@keyframes gmFadeUp{from{opacity:0;transform:translateY(8px)}
+to{opacity:1;transform:none}}
+@keyframes gmAlmost{0%{transform:translateX(-105%)}100%{transform:translateX(200%)}}
+@keyframes gmBlink{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion: reduce){.gmLoaderThumb,.gmLoaderTitle,#gmLoader.gmAlmost .gmLoaderInfo,#gmLoader.gmAlmost #gmLoaderFill::after{animation:none}
+.gmLoaderSpinner{animation-duration:2.4s}
+#gmLoaderFill{transition:none}}
+</style>
+
+<!-- ======================= 2. BODY: MARKUP + SCRIPT ======================= -->
+  <!-- GM Loader v1 markup (azgames_v1): blurred key art behind; thumb + title + spinner in the middle; the spinner turns
+       into the % bar once loading starts (.gmIsLoading), then "Almost there..." (.gmAlmost). src/sdk/loading.js drives it. -->
+  <div id="gmLoader">
+    <div class="gmLoaderBackdrop" style="background-image: url('Icons/loading.webp');"></div>
+    <div class="gmLoaderStage">
+      <img class="gmLoaderThumb" src="Icons/loading.webp" alt="Game Title">
+      <h1 class="gmLoaderTitle">Game Title</h1>
+      <div class="gmLoaderProgress">
+        <div class="gmLoaderSpinner" aria-hidden="true"></div>
+        <div class="gmLoaderBar"><div id="gmLoaderFill" style="width: 0%;"></div></div>
+        <div class="gmLoaderInfo" id="load-text">Loading...</div>
+      </div>
+    </div>
+    <!-- the template's logo (api.azgame.io/.../azgames_v1/logo.png), shipped with the game: same picture, no network wait -->
+    <div class="gmLoaderBrand" aria-hidden="true"><img src="Icons/domain.webp" alt=""></div>
+    <div class="gmLoaderVersion" id="load-version"></div>
+  </div>
+  <script>
+    // The template's gmTintFromArt, unchanged: the bar takes up to 3 strong colours of the key art (--gm-c1..3);
+    // any failure keeps the CSS default purple.
+    function gmTintFromArt(img) {
+      try {
+        if (!img.naturalWidth) return;
+        var n = 32, c = document.createElement("canvas");
+        c.width = n; c.height = n;
+        var ctx = c.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, n, n);
+        var d = ctx.getImageData(0, 0, n, n).data, bins = {}, order = [];
+        for (var i = 0; i < d.length; i += 4) {
+          var r = d[i], g = d[i + 1], b = d[i + 2];
+          if (d[i + 3] < 200) continue;
+          var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          if (mx < 50 || mx - mn < 40) continue;
+          var k = (r >> 5) + "," + (g >> 5) + "," + (b >> 5);
+          var e = bins[k];
+          if (!e) { e = bins[k] = { n: 0, r: 0, g: 0, b: 0 }; order.push(e); }
+          e.n++; e.r += r; e.g += g; e.b += b;
+        }
+        if (!order.length) return;
+        order.forEach(function (e) {
+          var r = e.r / e.n, g = e.g / e.n, b = e.b / e.n, m = Math.max(r, g, b);
+          e.s = e.n * Math.pow((m - Math.min(r, g, b)) / m, 1.5);
+        });
+        order.sort(function (p, q) { return q.s - p.s; });
+        function bright(e) {
+          var v = [e.r / e.n, e.g / e.n, e.b / e.n];
+          var m = Math.max(v[0], v[1], v[2]) || 1, f = m < 225 ? 225 / m : 1;
+          var avg = (v[0] + v[1] + v[2]) / 3;
+          return v.map(function (x) { return Math.max(0, Math.min(255, Math.round((avg + (x - avg) * 1.3) * f))); });
+        }
+        function far(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 90; }
+        var pick = [];
+        for (var j = 0; j < order.length && pick.length < 3; j++) {
+          if (order[j].n < 3) break;
+          var col = bright(order[j]);
+          if (pick.every(function (p) { return far(p, col); })) pick.push(col);
+        }
+        if (!pick.length) pick.push(bright(order[0]));
+        while (pick.length < 3) {
+          var t = pick.length * .22;
+          pick.push(pick[0].map(function (x) { return Math.round(x + (255 - x) * t); }));
+        }
+        var root = document.getElementById("gmLoader");
+        root.style.setProperty("--gm-c1", pick[0].join(","));
+        root.style.setProperty("--gm-c2", pick[1].join(","));
+        root.style.setProperty("--gm-c3", pick[2].join(","));
+      } catch (e) { }
+    }
+    (function () {
+      var art = document.querySelector(".gmLoaderThumb");
+      if (!art) return;
+      if (art.complete && art.naturalWidth) gmTintFromArt(art);
+      else art.addEventListener("load", function () { gmTintFromArt(art); });
+    })();
+  </script>

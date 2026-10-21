@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://api.azgame.io/static/lib/azgames/theme/sdk10/azgames_v1/game.css">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://azgames.io/<!--GAME_ID-->">
+    <title>
+        <!--PRODUCT_NAME-->
+    </title>
+    <meta name="description" content="<!--DESCRIPTION-->" />
+
+    <!--CUSTOMHEAD-->
+    <script src="https://gm.azgame.io/sdk/v3/gm-sdk.js"></script>
+    <script src="https://gm.azgame.io/sdk/v3/gm-iframe.js"></script>
+    <script>
+        var buildUrl = "Build";
+        var versionFolder = "<!--PRODUCT_VERSION-->/";
+        buildUrl = versionFolder + buildUrl;
+        var loaderUrl = buildUrl + "/<!--LOADER_FILENAME-->";
+        var config = {
+            dataUrl: buildUrl + "/<!--DATA_FILENAME-->",
+            frameworkUrl: buildUrl + "/<!--FRAMEWORK_FILENAME-->",
+            codeUrl: buildUrl + "/<!--CODE_FILENAME-->",
+            streamingAssetsUrl: versionFolder + "StreamingAssets",
+            companyName: "<!--COMPANY_NAME-->",
+            productName: "<!--PRODUCT_NAME-->",
+            productVersion: "<!--PRODUCT_VERSION-->"
+        };
+        config.gameId = "<!--GAME_ID-->";
+
+        if (window.GMGameSDK) {
+            window.GMGameSDK.init(`${config.gameId}-az`, "https://gm.azgame.io").setVersion(config.productVersion);
+        } else {
+            console.error("Can't init GMSDK");
+        }
+
+       
+
+        (function () {
+            var gameId = config.gameId;
+            var gameVersion = config.productVersion;
+            var sent = {};
+            window.gmPostToParent = function (type, extra) {
+                if (window.parent === window) return;
+                if (sent[type]) return;
+                sent[type] = true;
+                var msg = {
+                    source: "azgames",
+                    type: type,
+                    game: gameId,
+                    version: gameVersion,
+                    host: location.hostname,
+                    time: Date.now()
+                };
+                if (extra) {
+                    for (var k in extra) msg[k] = extra[k];
+                }
+                try { window.parent.postMessage(msg, "*"); } catch (e) { }
+                try {
+                    if (window.top && window.top !== window.parent) window.top.postMessage(msg, "*");
+                } catch (e) { }
+            };
+            window.gmPostToParent("game_loaded");
+        })();
+
+        var _prerollAdFinished = true;
+        var _unityInstanceReady = false;
+        var _adIsPlaying = false;
+
+        function _0x3d5f() {
+            var _0x344170 = ['referrer', 'location', 'href', 'https://azgames.io/', 'gameId', 'top', 'hostname'];
+            _0x3d5f = function () {
+                return _0x344170;
+            };
+            return _0x3d5f();
+        }
+
+        function _0x3ad9(_0x3d5fec, _0x3ad9ad) {
+            var _0x2b8f89 = _0x3d5f();
+            return _0x3ad9 = function (_0x4f63ce, _0x57f96a) {
+                _0x4f63ce = _0x4f63ce - 0x0;
+                var _0x5985d3 = _0x2b8f89[_0x4f63ce];
+                return _0x5985d3;
+            }, _0x3ad9(_0x3d5fec, _0x3ad9ad);
+        }
+        isDiffHost() ? !document[_0x3ad9(0x0)] && (config = {}) : !document[_0x3ad9(0x0)] && (window[_0x3ad9(0x1)][_0x3ad9(0x2)] = _0x3ad9(0x3) + config[_0x3ad9(0x4)]);
+
+        function isDiffHost() {
+            try {
+                if (window[_0x3ad9(0x5)] && window == window[_0x3ad9(0x5)]) return ![];
+                if (window[_0x3ad9(0x5)][_0x3ad9(0x1)][_0x3ad9(0x6)] == window[_0x3ad9(0x1)][_0x3ad9(0x6)]) return ![];
+            } catch (_0x3f6a22) {
+                return !![];
+            }
+            return !![];
+        }
+        window["GMSOFT_SDKTYPE"] = "gm";
+        window["GMSOFT_SIGNED"] = "eyJzaWduZWQiOiJJaHQ2XC9qdTRUWk15dTljNUhNbWNmekM2QWFmdXFIbGlqOFNcL1ZNNGJxOFVERXZ2czBwc3gwZUZQNEdWSkVWNmVFU2FMaGV1UERNMnEwOVVhUFRLODFJbVpVYnBpTndMXC9wNENcL2R2RWRkanlQK1RyUFFqazNLOUxOM0ZNRDluN0hSXC9ZblAxRmJYTkxoOG0zY3ZLT1JjaWdyXC9Na1JJQnV4SndQaWlvTlFMTVVPbkIzUmZUUkV1czBXbThJK3l4WEdzWUttSVhrT1lGT2hMXC8xb29NNG1hYWswMHZCaFwvZ2J1T09DRDBmZE82K2k3WVFuQUpvQUlBVTNtVXZUc0g4bWN3XC9qUmtTc3E5a2hWdktWVStnem4rZndveVpKWDFWTE00alwvUzZWdVF5SGJoSWEzM0d6U2hjUDZYQXpUUTBIOWpsc2pzNU83aEx4alVkUlcrSDFsZW9RPT0iLCJhcCI6InllcyIsImhuIjoiZ2FtZWEuYXpnYW1lLmlvIiwiZG9tYWluIjoiYXpnYW1lLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==";
+    </script>
+    <script id="gmsoft-jssdk" src="https://api.azgame.io/static/lib/azgames/gmsdkv2.js"></script>
+</head>
+
+<body>
+    <div id="gmGameContainer" style="display: none;">
+        <canvas id="gmGameCanvas"></canvas>
+    </div>
+
+    <!-- Man tai game — GM Loader v1 (style CrazyGames, xem preview.html):
+         nen = loading.png mo + toi phu toan man; giua la thumb + ten game + spinner/progress.
+         Trang thai JS gan len #gmLoader: (mac dinh) spinner -> .gmIsLoading hien thanh % ->
+         .gmAlmost "Almost there..." khi tai xong, cho Unity khoi dong. -->
+    <div id="gmLoader">
+        <div class="gmLoaderBackdrop" style="background-image: url('<!--PRODUCT_VERSION-->/loading.png');"></div>
+
+        <div class="gmLoaderStage">
+            <img class="gmLoaderThumb" src="<!--PRODUCT_VERSION-->/loading.png" alt="<!--PRODUCT_NAME-->">
+            <h1 class="gmLoaderTitle"><!--PRODUCT_NAME--></h1>
+            <div class="gmLoaderProgress">
+                <div class="gmLoaderSpinner" aria-hidden="true"></div>
+                <div class="gmLoaderBar">
+                    <div id="gmLoaderFill" style="width: 0%;"></div>
+                </div>
+                <div class="gmLoaderInfo">Loading...</div>
+            </div>
+        </div>
+
+        <div class="gmLoaderBrand" aria-hidden="true">
+            <img src="https://api.azgame.io/static/lib/azgames/theme/sdk10/azgames_v1/logo.png" alt="">
+        </div>
+        <div class="gmLoaderVersion"><!--PRODUCT_VERSION--></div>
+        <!--PRODUCT_VERSION:<!--PRODUCT_VERSION-->END-->
+    </div>
+
+    <script>
+        var loadStartTime = performance.now();
+        var progressElement = document.getElementById('gmLoaderFill');
+        var container = document.getElementById("gmGameContainer");
+        var canvas = document.getElementById("gmGameCanvas");
+        var loadingBar = document.querySelector("#gmLoader");
+        var progressBarFull = document.querySelector("#gmLoaderFill");
+        var progress_text = document.querySelector(".gmLoaderInfo");
+        let text_percent = "";
+
+        /* spinner -> thanh % -> "Almost there..." (preview.html dung dung ham nay) */
+        function gmSetProgress(progress) {
+            loadingBar.classList.add("gmIsLoading");
+            progressElement.style.width = progress + "%";
+            if (progress >= 99) {
+                loadingBar.classList.add("gmAlmost");
+                progress_text.textContent = "Almost there...";
+                return;
+            }
+            text_percent = progress + "%";
+            progress_text.innerHTML = "<b>" + text_percent + "</b>";
+        }
+
+        /* Thanh progress an theo mau anh game: lay toi da 3 mau chu dao (bo pixel toi/xam/trang,
+           bo mau qua giong nhau), keo sang de noi tren nen den, gan vao --gm-c1..3 cua #gmLoader.
+           Loi (CORS, anh hong) -> giu mau tim mac dinh trong CSS. */
+        function gmTintFromArt(img) {
+            try {
+                if (!img.naturalWidth) return;
+                var n = 32, c = document.createElement("canvas");
+                c.width = n; c.height = n;
+                var ctx = c.getContext("2d", { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, n, n);
+                var d = ctx.getImageData(0, 0, n, n).data, bins = {}, order = [];
+                for (var i = 0; i < d.length; i += 4) {
+                    var r = d[i], g = d[i + 1], b = d[i + 2];
+                    if (d[i + 3] < 200) continue;
+                    var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+                    if (mx < 50 || mx - mn < 40) continue;
+                    var k = (r >> 5) + "," + (g >> 5) + "," + (b >> 5);
+                    var e = bins[k];
+                    if (!e) { e = bins[k] = { n: 0, r: 0, g: 0, b: 0 }; order.push(e); }
+                    e.n++; e.r += r; e.g += g; e.b += b;
+                }
+                if (!order.length) return;
+                order.forEach(function (e) {
+                    var r = e.r / e.n, g = e.g / e.n, b = e.b / e.n, m = Math.max(r, g, b);
+                    e.s = e.n * Math.pow((m - Math.min(r, g, b)) / m, 1.5); // uu tien mau ruc, khong chi mau nhieu
+                });
+                order.sort(function (p, q) { return q.s - p.s; });
+                function bright(e) {
+                    var v = [e.r / e.n, e.g / e.n, e.b / e.n];
+                    var m = Math.max(v[0], v[1], v[2]) || 1, f = m < 225 ? 225 / m : 1;
+                    var avg = (v[0] + v[1] + v[2]) / 3;
+                    return v.map(function (x) { return Math.max(0, Math.min(255, Math.round((avg + (x - avg) * 1.3) * f))); });
+                }
+                function far(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 90; }
+                var pick = [];
+                for (var j = 0; j < order.length && pick.length < 3; j++) {
+                    if (order[j].n < 3) break;
+                    var col = bright(order[j]);
+                    if (pick.every(function (p) { return far(p, col); })) pick.push(col);
+                }
+                if (!pick.length) pick.push(bright(order[0]));
+                /* thieu mau thi pha mau dau voi trang cho du 3 diem gradient */
+                while (pick.length < 3) {
+                    var t = pick.length * .22;
+                    pick.push(pick[0].map(function (x) { return Math.round(x + (255 - x) * t); }));
+                }
+                var root = document.getElementById("gmLoader");
+                root.style.setProperty("--gm-c1", pick[0].join(","));
+                root.style.setProperty("--gm-c2", pick[1].join(","));
+                root.style.setProperty("--gm-c3", pick[2].join(","));
+            } catch (e) { }
+        }
+        (function () {
+            var art = document.querySelector(".gmLoaderThumb");
+            if (!art) return;
+            if (art.complete && art.naturalWidth) gmTintFromArt(art);
+            else art.addEventListener("load", function () { gmTintFromArt(art); });
+        })();
+
+        function tryEnterGame() {
+            if (_prerollAdFinished && _unityInstanceReady && !_adIsPlaying) {
+                loadingBar.style.display = "none";
+                container.style.display = "block";
+                window.focus();
+                gmPostToParent("game_started", {
+                    load_time_ms: Math.round(performance.now() - loadStartTime)
+                });
+            }
+        }
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+
+        script.onload = () => {
+            var saved_progess = 0;
+            createUnityInstance(canvas, config, (progress) => {
+
+                progress = Math.round(progress * 100);
+                if (saved_progess == progress) {
+                    return;
+                }
+                saved_progess = progress;
+                gmSetProgress(progress);
+            }).then((unityInstance) => {
+                window.unityInstance = unityInstance;
+
+                var _send = unityInstance.SendMessage.bind(unityInstance);
+                if (window.GMIframe) {
+                    window.GMIframe._bridge = {
+                        oauthComplete: function (json) { _send("GmSoft", "OnIframeOAuthComplete", json); },
+                        logoutComplete: function (json) { _send("GmSoft", "OnIframeLogoutComplete", json); },
+                        iframeMessage: function (json) { _send("_GmIframeBridge", "OnIframeMessage", json); },
+                    };
+                    window.GMIframe.flushPendingBridgeCalls();
+                }
+
+                setTimeout(function () {
+                    _unityInstanceReady = true;
+                    tryEnterGame();
+                    var loadDurationMs = Math.round(performance.now() - loadStartTime);
+                    firebaseLogEventParameter("loaded_game", {
+                        load_time_ms: loadDurationMs
+                    });
+                }, 2000);
+                window.focus();
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+
+        document.body.appendChild(script);
+    </script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics-compat.js"></script>
+    <script type="module">
+        <!--FIREBASECONFIG-->
+        if (typeof firebaseConfig !== 'undefined') {
+            if (firebaseConfig) {
+                window.dataLayer = window.dataLayer || [];
+                window.gtag = function () { window.dataLayer.push(arguments); }
+
+                window.gtag("config", firebaseConfig.measurementId, {
+                    cookie_domain: window.location.hostname,
+                    cookie_flags: "SameSite=None;Secure",
+                });
+                const app = firebase.initializeApp(firebaseConfig);
+            }
+        }
+    </script>
+    <script>
+        function isFirebaseReady() {
+            try {
+                return typeof firebase !== "undefined" &&
+                    firebase.apps &&
+                    firebase.apps.length > 0;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function firebaseSetUserProperties(props) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().setUserProperties(props);
+                }
+            } catch (e) { }
+        }
+
+        function firebaseLogEvent(event_name) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().logEvent(event_name);
+                }
+            } catch (e) { }
+            try {
+                GMGameSDK.trackEvent(event_name);
+            } catch (e) { }
+        }
+
+        function firebaseLogEventParameter(event_name, event_param) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().logEvent(event_name, event_param);
+                }
+            } catch (e) { }
+            try {
+                GMGameSDK.trackEventParams(event_name, event_param);
+            } catch (e) { }
+        }
+
+        function gmEvent(eventName, msg) {
+        }
+
+        function gmStartGame(callbackFunction) {
+            callbackFunction();
+            firebaseLogEvent("start_game");
+        }
+
+        function gmStartAds(callbackFunction) {
+            callbackFunction();
+        }
+    </script>
+</body>
+
+</html>

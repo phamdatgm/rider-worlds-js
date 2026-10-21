@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+    <!-- CSS that: theme/game.full.css la ban nguon (doc duoc), theme/game.css la ban minify —
+         deploy len lib/azgames/theme/sdk10/azgames_v1/game.css. Sua nguon, minify, xem preview nay truc tiep. -->
+    <link rel="stylesheet" href="theme/game.css">
+    <title>GM Loader v1 — preview AZGAMES sdk10/azgames_v1</title>
+    <style type="text/css">
+        /* ================= vo demo — KHONG thuoc template that ================= */
+        .demoBar {
+            position: fixed; top: 10px; left: 10px; right: 10px; z-index: 99999;
+            display: flex; flex-wrap: wrap; gap: 6px;
+            padding: 8px; border-radius: 10px;
+            background: rgba(14, 14, 18, .85); border: 1px solid rgba(255, 255, 255, .12);
+            backdrop-filter: blur(6px);
+            width: max-content; max-width: calc(100vw - 20px);
+        }
+        .demoBar span {
+            align-self: center;
+            font: 700 10px/1 ui-monospace, Consolas, monospace;
+            letter-spacing: .16em; text-transform: uppercase; color: #8d8d99;
+            margin: 0 4px;
+        }
+        .demoBtn {
+            appearance: none; cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, .12); border-radius: 7px;
+            background: #16161c; color: #c9c9d3;
+            font: 700 11px/1 "Nunito", sans-serif; letter-spacing: .02em;
+            padding: 7px 11px; white-space: nowrap;
+        }
+        .demoBtn:hover { background: #1f1f27; color: #fff }
+        .demoBtn[aria-pressed="true"] { background: #fff; color: #111; border-color: #fff }
+        /* "canvas game" gia cho preview */
+        #gmGameCanvas.demoFakeCanvas {
+            background: radial-gradient(120% 90% at 50% 0%, #2a2350 0%, #12101f 55%, #07060c 100%);
+        }
+        .demoGameLabel {
+            position: absolute; inset: 0; z-index: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            pointer-events: none; color: #fff;
+        }
+        .demoGameLabel b { font: 800 clamp(18px, 3vw, 30px)/1 "Nunito", sans-serif }
+        .demoGameLabel i {
+            font: 600 10px/1 ui-monospace, Consolas, monospace;
+            letter-spacing: .24em; text-transform: uppercase; color: #6b6590; font-style: normal;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ================= thanh dieu khien demo ================= -->
+    <div class="demoBar">
+        <span>GM Loader v1</span>
+        <button class="demoBtn" id="demoReplay">&#8635; Replay</button>
+        <span>State</span>
+        <button class="demoBtn" data-state="spinner" aria-pressed="false">Spinner</button>
+        <button class="demoBtn" data-state="progress" aria-pressed="false">42%</button>
+        <button class="demoBtn" data-state="almost" aria-pressed="false">Almost</button>
+        <button class="demoBtn" data-state="game" aria-pressed="false">Game</button>
+        <span>Image</span>
+        <button class="demoBtn" data-img="escaperoad3" aria-pressed="true">Escape Road 3</button>
+        <button class="demoBtn" data-img="golfhit2" aria-pressed="false">Golf Hit</button>
+        <button class="demoBtn" data-img="horrornun3" aria-pressed="false">Horror Nun</button>
+        <button class="demoBtn" data-img="wide" aria-pressed="false">loading.png ngang</button>
+    </div>
+
+    <!-- ================= DOM y het index.html tu day tro xuong ================= -->
+    <div id="gmGameContainer" style="display: none;">
+        <canvas id="gmGameCanvas" class="demoFakeCanvas"></canvas>
+        <div class="demoGameLabel"><b>Escape Road 3</b><i>game canvas</i></div>
+    </div>
+
+    <div id="gmLoader">
+        <div class="gmLoaderBackdrop"></div>
+
+        <div class="gmLoaderStage">
+            <!-- KHONG dat src="" o day: trinh duyet giai src rong thanh chinh URL cua trang.
+                 setGame() gan src ngay khi script chay. -->
+            <img class="gmLoaderThumb" id="demoArt" alt="">
+            <h1 class="gmLoaderTitle">Escape Road 3</h1>
+            <div class="gmLoaderProgress">
+                <div class="gmLoaderSpinner" aria-hidden="true"></div>
+                <div class="gmLoaderBar">
+                    <div id="gmLoaderFill" style="width: 0%;"></div>
+                </div>
+                <div class="gmLoaderInfo">Loading...</div>
+            </div>
+        </div>
+
+        <div class="gmLoaderBrand" aria-hidden="true">
+            <img src="logo.png" alt="" onerror="this.style.display='none'">
+        </div>
+        <div class="gmLoaderVersion">1.0.42</div>
+    </div>
+
+    <script>
+        (function () {
+            "use strict";
+
+            /* SVG data URI ti le 670/476 — giong loading.png that cua releasegames_v2;
+               cung la fallback khi mo offline */
+            var WIDE = "data:image/svg+xml," + encodeURIComponent(
+                "<svg xmlns='http://www.w3.org/2000/svg' width='670' height='476'>" +
+                "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+                "<stop offset='0' stop-color='#2a1a4d'/><stop offset='.55' stop-color='#173a5e'/>" +
+                "<stop offset='1' stop-color='#0b1e33'/></linearGradient></defs>" +
+                "<rect width='670' height='476' fill='url(#g)'/>" +
+                "<circle cx='540' cy='90' r='90' fill='#ff8150' opacity='.55'/>" +
+                "<circle cx='130' cy='390' r='140' fill='#8b5cff' opacity='.4'/>" +
+                "<circle cx='340' cy='230' r='80' fill='#4ee1ff' opacity='.35'/>" +
+                "<text x='335' y='250' fill='#fff' font-family='Arial' font-weight='700' font-size='44' text-anchor='middle'>LOADING.PNG</text></svg>"
+            );
+            /* Thanh progress an theo mau anh game: lay toi da 3 mau chu dao (bo pixel toi/xam/trang,
+               bo mau qua giong nhau), keo sang de noi tren nen den, gan vao --gm-c1..3 cua #gmLoader.
+               Loi (CORS, anh hong) -> giu mau tim mac dinh trong CSS. */
+            function gmTintFromArt(img) {
+                try {
+                    if (!img.naturalWidth) return;
+                    var n = 32, c = document.createElement("canvas");
+                    c.width = n; c.height = n;
+                    var ctx = c.getContext("2d", { willReadFrequently: true });
+                    ctx.drawImage(img, 0, 0, n, n);
+                    var d = ctx.getImageData(0, 0, n, n).data, bins = {}, order = [];
+                    for (var i = 0; i < d.length; i += 4) {
+                        var r = d[i], g = d[i + 1], b = d[i + 2];
+                        if (d[i + 3] < 200) continue;
+                        var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+                        if (mx < 50 || mx - mn < 40) continue;
+                        var k = (r >> 5) + "," + (g >> 5) + "," + (b >> 5);
+                        var e = bins[k];
+                        if (!e) { e = bins[k] = { n: 0, r: 0, g: 0, b: 0 }; order.push(e); }
+                        e.n++; e.r += r; e.g += g; e.b += b;
+                    }
+                    if (!order.length) return;
+                    order.forEach(function (e) {
+                        var r = e.r / e.n, g = e.g / e.n, b = e.b / e.n, m = Math.max(r, g, b);
+                        e.s = e.n * Math.pow((m - Math.min(r, g, b)) / m, 1.5); // uu tien mau ruc, khong chi mau nhieu
+                    });
+                    order.sort(function (p, q) { return q.s - p.s; });
+                    function bright(e) {
+                        var v = [e.r / e.n, e.g / e.n, e.b / e.n];
+                        var m = Math.max(v[0], v[1], v[2]) || 1, f = m < 225 ? 225 / m : 1;
+                        var avg = (v[0] + v[1] + v[2]) / 3;
+                        return v.map(function (x) { return Math.max(0, Math.min(255, Math.round((avg + (x - avg) * 1.3) * f))); });
+                    }
+                    function far(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 90; }
+                    var pick = [];
+                    for (var j = 0; j < order.length && pick.length < 3; j++) {
+                        if (order[j].n < 3) break;
+                        var col = bright(order[j]);
+                        if (pick.every(function (p) { return far(p, col); })) pick.push(col);
+                    }
+                    if (!pick.length) pick.push(bright(order[0]));
+                    /* thieu mau thi pha mau dau voi trang cho du 3 diem gradient */
+                    while (pick.length < 3) {
+                        var t = pick.length * .22;
+                        pick.push(pick[0].map(function (x) { return Math.round(x + (255 - x) * t); }));
+                    }
+                    var root = document.getElementById("gmLoader");
+                    root.style.setProperty("--gm-c1", pick[0].join(","));
+                    root.style.setProperty("--gm-c2", pick[1].join(","));
+                    root.style.setProperty("--gm-c3", pick[2].join(","));
+                } catch (e) { }
+            }
+    
+            var GAMES = {
+                escaperoad3: { name: "Escape Road 3", img: "https://azgames.io/upload/imgs/escaperoad3.png" },
+                golfhit2:    { name: "Golf Hit",      img: "https://azgames.io/upload/imgs/golfhit2.png" },
+                horrornun3:  { name: "Horror Nun",    img: "https://azgames.io/upload/imgs/horrornun3.png" },
+                wide:        { name: "A Very Long Game Name To Test Ellipsis Overflow", img: WIDE }
+            };
+            var demoArt = document.getElementById("demoArt");
+            var demoBackdrop = document.querySelector(".gmLoaderBackdrop");
+            /* anh azgames.io tra Access-Control-Allow-Origin: * nen doc pixel duoc khi set crossOrigin;
+               prod khong can vi loading.png cung origin voi index.html */
+            demoArt.crossOrigin = "anonymous";
+            demoArt.addEventListener("load", function () { gmTintFromArt(demoArt); });
+            function setArt(src) {
+                demoArt.src = src;
+                demoBackdrop.style.backgroundImage = "url(\"" + src + "\")";
+            }
+            function setGame(key) {
+                var g = GAMES[key];
+                document.querySelector(".gmLoaderTitle").textContent = g.name;
+                document.querySelector(".demoGameLabel b").textContent = g.name;
+                demoArt.alt = g.name;
+                ["--gm-c1", "--gm-c2", "--gm-c3"].forEach(function (v) {
+                    document.getElementById("gmLoader").style.removeProperty(v);
+                });
+                demoArt.onerror = function () { this.onerror = null; setArt(WIDE); };
+                setArt(g.img);
+                document.querySelectorAll(".demoBtn[data-img]").forEach(function (b) {
+                    b.setAttribute("aria-pressed", String(b.dataset.img === key));
+                });
+            }
+            document.querySelectorAll(".demoBtn[data-img]").forEach(function (b) {
+                b.addEventListener("click", function () { setGame(b.dataset.img); });
+            });
+            setGame("escaperoad3");
+
+            /* Cung bo tham chieu + gmSetProgress nhu index.html */
+            var progressElement = document.getElementById("gmLoaderFill");
+            var container = document.getElementById("gmGameContainer");
+            var loadingBar = document.querySelector("#gmLoader");
+            var progress_text = document.querySelector(".gmLoaderInfo");
+            var text_percent = "";
+
+            function gmSetProgress(progress) {
+                loadingBar.classList.add("gmIsLoading");
+                progressElement.style.width = progress + "%";
+                if (progress >= 99) {
+                    loadingBar.classList.add("gmAlmost");
+                    progress_text.textContent = "Almost there...";
+                    return;
+                }
+                text_percent = progress + "%";
+                progress_text.innerHTML = "<b>" + text_percent + "</b>";
+            }
+
+            var timers = [];
+            function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+            function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+            function markState(state) {
+                document.querySelectorAll(".demoBtn[data-state]").forEach(function (b) {
+                    b.setAttribute("aria-pressed", String(b.dataset.state === state));
+                });
+            }
+            /* ve trang thai ban dau cua index.html (spinner, chua co progress) */
+            function resetLoader() {
+                clearTimers();
+                container.style.display = "none";
+                loadingBar.style.display = "";
+                loadingBar.classList.remove("gmIsLoading", "gmAlmost");
+                progressElement.style.width = "0%";
+                progress_text.textContent = "Loading...";
+            }
+            function setState(state) {
+                resetLoader();
+                markState(state);
+                if (state === "progress") gmSetProgress(42);
+                else if (state === "almost") gmSetProgress(100);
+                else if (state === "game") { loadingBar.style.display = "none"; container.style.display = "block"; }
+            }
+
+            /* Gia lap chuoi that: spinner (cho loader.js) -> % -> Almost there (Unity khoi dong ~2s) -> vao game */
+            function simulateLoad() {
+                resetLoader();
+                markState("");
+                var progress = 0;
+                later(function tick() {
+                    progress = Math.min(progress + 1 + Math.floor(Math.random() * 5), 100);
+                    gmSetProgress(progress);
+                    if (progress < 100) { later(tick, 80 + Math.random() * 140); return; }
+                    later(function () { setState("game"); }, 2600);
+                }, 1200);
+            }
+
+            document.getElementById("demoReplay").addEventListener("click", simulateLoad);
+            document.querySelectorAll(".demoBtn[data-state]").forEach(function (b) {
+                b.addEventListener("click", function () { setState(b.dataset.state); });
+            });
+
+            /* preview.html#spinner | #progress | #almost | #game — mo thang mot trang thai */
+            var hash = location.hash.slice(1);
+            if (/^(spinner|progress|almost|game)$/.test(hash)) setState(hash);
+            else simulateLoad();
+        })();
+    </script>
+</body>
+
+</html>
