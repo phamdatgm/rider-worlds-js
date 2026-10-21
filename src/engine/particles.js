@@ -308,6 +308,7 @@ export class ParticleSystem extends Behaviour {
       const back = this.worldSpace ? _back.subVectors(prev, pos) : null;
       for (let i = 0; i < n; i++) {
         const lag = 1 - (i + 1) / n; // 0 = emitted at the end of the frame
+        this._spawnTime = this.time - lag * dt;
         this._spawn(norm, back, lag, dt);
       }
       let nb = 0;
@@ -320,7 +321,12 @@ export class ParticleSystem extends Behaviour {
           st.cycles++;
         }
       });
-      for (let i = 0; i < nb; i++) this._spawn(norm);
+      this._spawnTime = this.time;
+      for (let i = 0; i < nb; i++) {
+        this._burstSpread = [i, nb];
+        this._spawn(norm);
+      }
+      this._burstSpread = null;
     }
     if (this.time >= this.duration) {
       if (this.looping) {
@@ -328,6 +334,23 @@ export class ParticleSystem extends Behaviour {
         this.burstState.forEach((s) => (s.cycles = 0));
       } else this.playing = false;
     }
+  }
+
+  /**
+   * ParticleSystemShapeMultiModeValue (radius of edges, arc of circles/cones): where along the shape the next
+   * particle starts, in [0, 1). Random 0, Loop 1, PingPong 2, BurstSpread 3; spread quantizes the position.
+   */
+  _shapeParam(mm) {
+    const mode = mm?.mode || 0;
+    let u;
+    if (mode === 1 || mode === 2) {
+      const x = (this._spawnTime ?? this.time) * evalCurve(mm.speed, Mathf.Clamp01(this.time / this.duration), 0.5);
+      u = mode === 1 ? x - Math.floor(x) : 1 - Math.abs((((x % 2) + 2) % 2) - 1);
+    } else if (mode === 3 && this._burstSpread) {
+      u = this._burstSpread[0] / Math.max(1, this._burstSpread[1]);
+    } else u = rnd();
+    if (mm?.spread > 0) u = Math.floor(u / mm.spread) * mm.spread;
+    return Math.min(u, 0.99999);
   }
 
   _shapePoint() {
@@ -359,7 +382,7 @@ export class ParticleSystem extends Behaviour {
       case 7:
       case 8:
       case 9: {
-        const a = (sh.arc?.value ?? 360) * Deg2Rad * rnd();
+        const a = (sh.arc?.value ?? 360) * Deg2Rad * this._shapeParam(sh.arc);
         const rr = sh.type === 7 || sh.type === 9 ? radius : r;
         p.set(Math.cos(a) * rr, Math.sin(a) * rr, 0);
         const ang = (sh.angle ?? 25) * Deg2Rad;
@@ -375,14 +398,14 @@ export class ParticleSystem extends Behaviour {
         break;
       case 10:
       case 11: {
-        const a = (sh.arc?.value ?? 360) * Deg2Rad * rnd();
+        const a = (sh.arc?.value ?? 360) * Deg2Rad * this._shapeParam(sh.arc);
         const rr = sh.type === 11 ? radius : r;
         p.set(Math.cos(a) * rr, Math.sin(a) * rr, 0);
         dir.set(Math.cos(a), Math.sin(a), 0);
         break;
       }
       case 12:
-        p.set((rnd() * 2 - 1) * radius, 0, 0);
+        p.set((this._shapeParam(sh.radius) * 2 - 1) * radius, 0, 0);
         dir.set(0, 1, 0);
         break;
       case 18:
@@ -446,6 +469,12 @@ export class ParticleSystem extends Behaviour {
       frame: this.startFrameOverride ?? evalCurve(this.d.UVModule?.startFrame, norm),
     };
     if (m.randomizeRotationDirection && rnd() < m.randomizeRotationDirection) q.flip = -1;
+    // ShapeModule.alignToDirection orients mesh particles by their initial direction of travel instead of the
+    // start rotation; the game's aligned mesh systems are all static (speed 0), which leaves them unrotated
+    // (e.g. the SpeedBooster ">>>" arrows face the camera). Moving aligned billboards keep their start rotation.
+    if (this.d.ShapeModule?.enabled && this.d.ShapeModule.alignToDirection && this.renderer?.renderMode === 4 && vel.lengthSq() < 1e-8) {
+      q.rx = q.ry = q.rot = 0;
+    }
     if (lag > 0) {
       const age = Math.min(lag * dt, life * 0.999);
       if (back) p.addScaledVector(back, lag);
