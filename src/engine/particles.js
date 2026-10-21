@@ -790,8 +790,9 @@ export class ParticleSystem extends Behaviour {
     for (const q of this.particles) {
       const t = q.age / q.life;
       this._particleSize(q, t, sz);
-      // Unity euler (x, y, z) -> mirrored space (-x, -y, z), applied Z, X, Y like Unity
-      _ie.set(-q.rx, -q.ry, q.rot || 0, 'YXZ');
+      // particle rotations run the opposite way of transform rotations in Unity (clockwise billboards, see
+      // _renderParticles), i.e. Euler(-x, -y, -z); mirrored space (-x, -y, z) -> (x, y, -z), applied Z, X, Y
+      _ie.set(q.rx, q.ry, -(q.rot || 0), 'YXZ');
       _iq.setFromEuler(_ie);
       // view-aligned meshes are rotated in camera space; Local ones inherit the system transform via mesh.matrix
       if (frame) _iq.premultiply(_cq);
