@@ -26,8 +26,8 @@ import * as MetaDebug from './meta/debug.js';
 import * as UGUI from './ugui/index.js';
 import { UISprites, initUGUI } from './ugui/index.js';
 import './uiscripts/index.js';
-import { SceneHost, TransitionScreen, getSceneSwitcher } from './uiscripts/scenes.js';
-import { UIState } from './uiscripts/services.js';
+import { SceneHost, TransitionScreen, getSceneSwitcher, EndlessModeID, TimedLevelModeID } from './uiscripts/scenes.js';
+import { UIState, WorldManager } from './uiscripts/services.js';
 
 for (const cls of [Rigidbody2D, BoxCollider2D, CircleCollider2D, PolygonCollider2D, EdgeCollider2D, CapsuleCollider2D, WheelJoint2D, MeshFilter, MeshRenderer, SkinnedMeshRenderer, SpriteRenderer, Light, ParticleSystem, ParticleSystemRenderer, MMAutoDestroyParticleSystem]) {
   registerComponent(cls, cls.typeName);
@@ -96,7 +96,6 @@ Game.onLevelOver = () => getSceneSwitcher().ReturnToMainMenu();
 
 async function main() {
   const canvas = document.getElementById('game');
-  document.getElementById('ui')?.remove();
   boot.show();
   try {
     await loadCore((p) => boot.progress(p * 0.5));
@@ -136,6 +135,16 @@ async function main() {
     },
     get loading() {
       return !!loadingGame || getSceneSwitcher().menuStateSO.isSceneTransitioning;
+    },
+    // debug / headless-test entry points (tools/smoke.mjs, tools/debug.mjs)
+    get menuWorld() {
+      return WorldManager.Instance.CurrentWorldIndex;
+    },
+    playEndless(world = this.menuWorld) {
+      getSceneSwitcher().StartMode(new EndlessModeID(world));
+    },
+    playLevel(id) {
+      getSceneSwitcher().StartMode(new TimedLevelModeID(id));
     },
   };
   // SceneSwitcher.LoadAppStart (Menu + MainGame, or straight into the first-run tutorial)

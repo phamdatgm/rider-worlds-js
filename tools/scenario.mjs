@@ -2,22 +2,17 @@
 // The scenario module default-exports async (h) => {...} with helpers:
 //   h.page, h.shot(name), h.sleep(ms), h.eval(fn, ...args), h.wait(fn, timeoutMs), h.click(selector), h.bot(on)
 // SAVE=<json file> preloads localStorage before the page boots.
-import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchBrowser } from './browser.mjs';
 
 const script = process.argv[2];
 const out = process.argv[3] || 'scenario-out';
 const url = process.env.URL || 'http://localhost:5173/';
 fs.mkdirSync(out, { recursive: true });
 
-const browser = await puppeteer.launch({
-  executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  headless: 'new',
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
-  defaultViewport: { width: Number(process.env.W || 1280), height: Number(process.env.H || 720) },
-});
+const browser = await launchBrowser({ defaultViewport: { width: Number(process.env.W || 1280), height: Number(process.env.H || 720) } });
 const page = await browser.newPage();
 const logs = [];
 page.on('console', (m) => {

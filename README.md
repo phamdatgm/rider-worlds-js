@@ -4,7 +4,9 @@ Bản chuyển đổi project Unity `D:\SourceGame\09\rider-worlds` sang web, g�
 
 - **Render**: Three.js (r186), pipeline kiểu Unity gamma space + bloom (prefilter như URP).
 - **Vật lý**: Planck.js – bản port Box2D, cùng engine với Physics2D của Unity (Rigidbody2D, WheelJoint2D, PolygonCollider2D…).
-- **UI**: DOM + sprite gốc gộp trong atlas WebP; text tiếng Anh lấy nguyên văn từ I2 Localization.
+- **UI**: chính các canvas uGUI gốc (Menu.unity, HUD của MainGame, Core) vẽ bằng WebGL qua lớp port uGUI/TextMeshPro
+  (`src/ugui`) và chạy bằng các script UI gốc đã port (`src/uiscripts`); sprite gộp trong atlas WebP,
+  text tiếng Anh lấy nguyên văn từ I2 Localization.
 - **Build**: Vite.
 
 ## Chạy
@@ -14,7 +16,11 @@ npm install
 npm run export-assets   # (chỉ cần khi dữ liệu Unity thay đổi) Python 3 + numpy + PyYAML + Pillow
 npm run dev             # http://localhost:5173
 npm run build           # bản production trong dist/
+npm run smoke           # smoke test headless (cần `npm run dev` đang chạy), ảnh + log trong smoke-out/
 ```
+
+`npm run smoke` mở game bằng Chrome headless, chơi thử (biến `BOT=1` bật bot tự lái, `SECS=<n>` số giây) và trả
+mã lỗi 1 nếu trang có exception. Chrome được tìm ở vị trí mặc định của từng hệ điều hành, hoặc chỉ định bằng `CHROME=<đường dẫn>`.
 
 Điều khiển: giữ chuột / chạm / Space / ↑ để tăng tốc trên mặt đất và lộn (flip) khi ở trên không. `Esc`/`P` tạm dừng, `R` chơi lại.
 Cài đặt (nút bánh răng) có nút **Reset progress** để xoá save và chơi lại từ tutorial.
@@ -25,17 +31,27 @@ Cài đặt (nút bánh răng) có nút **Reset progress** để xoá save và c
 tools/                 exporter Python
   unity_yaml.py        đọc prefab/scene/asset dạng text YAML của Unity
   unity_mesh.py        giải nén Mesh (CompressedMesh / VertexData)
-  export.py            prefab, ScriptableObject, material, mesh, texture, audio -> public/assets
+  export.py            prefab, scene UI, ScriptableObject, material, mesh, texture, audio -> public/assets
+                       (+ atlas sprite UI public/assets/ui)
   export_meta.py       dữ liệu meta (card, challenge, rank track, lootbox, shop, text I2) -> public/assets/meta.json
-  export_ui.py         sprite UI -> atlas WebP public/ui/atlas (atlas.json + atlas_N.webp)
-  scenario.mjs         chạy kịch bản headless (puppeteer-core): node tools/scenario.mjs <kịch bản.mjs> [outDir]
-  smoke.mjs, debug.mjs test headless gameplay
+  export_ui_extra.py   sprite chỉ được dữ liệu meta nhắc tới -> atlas public/assets/ui_extra
+  export_anim.py       AnimatorController + AnimationClip -> public/assets/anim
+  tmp_dynamic.py       bake thêm glyph SDF mà font TMP "Dynamic" sẽ sinh lúc chạy
+  export_prefab.py     xuất nhanh vài prefab vào bản export có sẵn (khi thử nghiệm)
+  dump_prefab.py, census.py  in cấu trúc prefab / thống kê component (debug exporter)
+  browser.mjs          khởi động Chrome headless dùng chung cho các tool dưới
+  smoke.mjs            smoke test (npm run smoke): node tools/smoke.mjs [outDir] [endless|<level id>]
+  scenario.mjs         chạy kịch bản headless: node tools/scenario.mjs <kịch bản.mjs> [outDir]
+  debug.mjs            vào một run rồi in kết quả một biểu thức JS
 src/engine/            "mini Unity": GameObject/Transform/MonoBehaviour, coroutine, Physics2D, render, particle, audio, input
 src/render/            port các shader Shader Graph (URP) sang GLSL
 src/game/              script gameplay (Player*, RoadPiece, chunk manager + chữ BONUS, camera Cinemachine,
                        MMFeedbacks, chế độ Endless/Level, revive, preview hiệu ứng trong garage)
 src/meta/              meta game: save, currency, card, reward, rank, world, challenge, lootbox, shop, bonus, tutorial
-src/ui/                màn hình: menu chính, garage, shop, mở lootbox, rank-up/reward track, UI trong run
+src/ugui/              port uGUI: Canvas/RectTransform, layout, Image/RawImage, TextMeshPro (SDF), event system,
+                       Selectable/Button, tween, UI particle, vẽ bằng WebGL
+src/uiscripts/         script UI gốc: chuyển scene (SceneSwitcher/TransitionScreen), menu chính, HUD, garage, shop,
+                       lootbox, rank/reward track, challenge, level, revive, tutorial, cài đặt
 ```
 
 ## Meta game đã port
@@ -77,3 +93,4 @@ src/ui/                màn hình: menu chính, garage, shop, mở lootbox, rank
 
 `window.__meta` (Currencies, CardService, PlayerRank, ChallengeManager, LootboxService, Shop, Tutorials…), `window.__save`,
 `window.__app`, `window.__game`. Ví dụ: `__meta.Currencies.Star.Gain(10)` để lên rank.
+`__app.state` (`menu` / `game` / `running`), `__app.playEndless(world?)`, `__app.playLevel(id)` để vào run từ console hoặc tool headless.

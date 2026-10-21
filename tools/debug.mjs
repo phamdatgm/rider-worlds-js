@@ -1,8 +1,8 @@
 // node tools/debug.mjs "<js expression evaluated after starting scenario>" [scenario]
-import puppeteer from 'puppeteer-core';
+import { launchBrowser } from './browser.mjs';
 const expr = process.argv[2];
 const scenario = process.argv[3] || 'endless';
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launchBrowser();
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warn') console.log(`[${m.type()}]`, m.text()); });

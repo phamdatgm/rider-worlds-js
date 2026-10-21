@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "smoke": "node tools/smoke.mjs smoke-out",
     "export-assets": "python tools/export.py && python tools/export_meta.py && python tools/export_ui_extra.py && python tools/export_anim.py && python tools/tmp_dynamic.py"
   },
   "dependencies": {

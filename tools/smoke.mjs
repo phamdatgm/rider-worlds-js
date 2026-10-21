@@ -1,25 +1,24 @@
 // Headless smoke test: node tools/smoke.mjs [outDir] [scenario]
 // Opens the dev server, starts an endless run (or a level), holds "accelerate" and saves screenshots + console log.
-import puppeteer from 'puppeteer-core';
+// Exits with code 1 on an uncaught page error or a failed step, so it can gate a change.
 import fs from 'node:fs';
 import path from 'node:path';
+import { launchBrowser } from './browser.mjs';
 
 const out = process.argv[2] || 'smoke-out';
 const scenario = process.argv[3] || 'endless';
 const url = process.env.URL || 'http://localhost:5173/';
-const chrome = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 fs.mkdirSync(out, { recursive: true });
 
-const browser = await puppeteer.launch({
-  executablePath: chrome,
-  headless: 'new',
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
-  defaultViewport: { width: 1280, height: 720 },
-});
+const browser = await launchBrowser({ defaultViewport: { width: 1280, height: 720 } });
 const page = await browser.newPage();
 const logs = [];
+let failed = false;
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
-page.on('pageerror', (e) => logs.push(`[pageerror] ${e.stack || e.message}`));
+page.on('pageerror', (e) => {
+  failed = true;
+  logs.push(`[pageerror] ${e.stack || e.message}`);
+});
 page.on('response', (r) => {
   if (r.status() >= 400) logs.push(`[http ${r.status()}] ${r.url()}`);
 });
@@ -28,15 +27,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__app && window.__app.state === 'menu', { timeout: 180000 });
+  // a fresh profile boots straight into the first-run tutorial (game scene), a finished one into the menu
+  await page.waitForFunction(() => window.__app && window.__game?.manager && !window.__app.loading, { timeout: 180000 });
   await sleep(1500);
-  await shot('01-menu');
-  if (scenario === 'endless') {
-    await page.evaluate(() => window.__app.playEndless(window.__app.menuWorld));
-  } else {
-    await page.evaluate((id) => window.__app.playLevel(id), scenario);
+  const start = await page.evaluate(() => window.__app.state);
+  logs.push(`[state boot] ${start}`);
+  await shot(`01-${start}`);
+  if (start === 'menu') {
+    if (scenario === 'endless') {
+      await page.evaluate(() => window.__app.playEndless());
+    } else {
+      await page.evaluate((id) => window.__app.playLevel(id), scenario);
+    }
+    await page.waitForFunction(() => window.__app.state !== 'menu' && !window.__app.loading, { timeout: 120000 });
   }
-  await page.waitForFunction(() => ['ready', 'running'].includes(window.__app.state), { timeout: 120000 });
   await sleep(500);
   await shot('02-ready');
   const bot = process.env.BOT === '1';
@@ -80,6 +84,7 @@ try {
   await sleep(1500);
   await shot('04-end');
 } catch (e) {
+  failed = true;
   logs.push(`[smoke] ${e.stack || e}`);
   await shot('99-error').catch(() => {});
 } finally {
@@ -87,3 +92,5 @@ try {
   await browser.close();
 }
 console.log(logs.filter((l) => /error|pageerror|state|smoke|warn/i.test(l)).slice(0, 80).join('\n'));
+console.log(failed ? 'SMOKE FAILED' : 'SMOKE OK');
+process.exitCode = failed ? 1 : 0;

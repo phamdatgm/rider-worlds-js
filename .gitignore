@@ -6,3 +6,5 @@ tools/__pycache__
 __pycache__/
 *.log
 .env
+smoke-out/
+scenario-out/
