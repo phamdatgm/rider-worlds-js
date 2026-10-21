@@ -441,10 +441,15 @@ export class ParticleSystem extends Behaviour {
     const size = evalCurve(m.startSize, norm);
     const color = evalGradient(this.startColorOverride || m.startColor, norm, rnd(), [1, 1, 1, 1]).slice();
     const { p, dir } = this._shapePoint();
+    // ShapeModule.alignToDirection on static mesh particles: the mesh's forward (Unity +Z) is turned onto the
+    // shape's emission direction in simulation space, so the particles follow the system's rotation
+    const sh = this.d.ShapeModule;
+    const align = sh?.enabled && sh.alignToDirection && this.renderer?.renderMode === 4 && Math.abs(speed) < 1e-4 ? new THREE.Quaternion().setFromUnitVectors(_zf, dir) : null;
     const vel = dir.multiplyScalar(speed);
     if (this.worldSpace) {
       p.applyMatrix4(this._simMatrix());
       vel.applyQuaternion(this.transform.rotation);
+      align?.premultiply(this.transform.rotation);
     }
     const rad = (c) => evalCurve(c) * (c?.scalar > 7 ? Deg2Rad : 1);
     const tm = this.d.TrailModule;
@@ -469,11 +474,12 @@ export class ParticleSystem extends Behaviour {
       frame: this.startFrameOverride ?? evalCurve(this.d.UVModule?.startFrame, norm),
     };
     if (m.randomizeRotationDirection && rnd() < m.randomizeRotationDirection) q.flip = -1;
-    // ShapeModule.alignToDirection orients mesh particles by their initial direction of travel instead of the
-    // start rotation; the game's aligned mesh systems are all static (speed 0), which leaves them unrotated
-    // (e.g. the SpeedBooster ">>>" arrows face the camera). Moving aligned billboards keep their start rotation.
-    if (this.d.ShapeModule?.enabled && this.d.ShapeModule.alignToDirection && this.renderer?.renderMode === 4 && vel.lengthSq() < 1e-8) {
+    // the alignment replaces the start rotation (SpeedBooster: an edge emitting along +Y under a 90 deg X turn
+    // leaves the ">>>" arrows facing the camera, rolled with the pad on slopes). Moving aligned billboards keep
+    // their start rotation.
+    if (align) {
       q.rx = q.ry = q.rot = 0;
+      q.align = align;
     }
     if (lag > 0) {
       const age = Math.min(lag * dt, life * 0.999);
@@ -823,8 +829,12 @@ export class ParticleSystem extends Behaviour {
       // _renderParticles), i.e. Euler(-x, -y, -z); mirrored space (-x, -y, z) -> (x, y, -z), applied Z, X, Y
       _ie.set(q.rx, q.ry, -(q.rot || 0), 'YXZ');
       _iq.setFromEuler(_ie);
-      // view-aligned meshes are rotated in camera space; Local ones inherit the system transform via mesh.matrix
-      if (frame) _iq.premultiply(_cq);
+      // view-aligned meshes are rotated in camera space; Local ones inherit the system transform via mesh.matrix.
+      // Direction-aligned ones are oriented in simulation space whatever the render alignment
+      if (q.align) {
+        _iq.premultiply(q.align);
+        if (sim) _iq.premultiply(_sq);
+      } else if (frame) _iq.premultiply(_cq);
       _is.set(sz[0], sz[1], sz[2]);
       if (sim) _is.multiply(_ss);
       _ip.copy(q.p);
@@ -1007,6 +1017,7 @@ export class ParticleSystem extends Behaviour {
 
 const UV01 = [0, 0, 1, 1];
 const _back = new THREE.Vector3();
+const _zf = new THREE.Vector3(0, 0, -1); // Unity +Z in mirrored space
 const _cq = new THREE.Quaternion();
 const _cr = new THREE.Vector3();
 const _cu = new THREE.Vector3();
