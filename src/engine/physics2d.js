@@ -483,7 +483,9 @@ export class Rigidbody2D extends Component {
     if (this.transform._changed !== this._syncStamp) return;
     const a = this._prev;
     const b = this._cur;
-    let da = b.a - a.a;
+    // shortest way round: SetRotation keeps unwrapped angles (a -360 turn restarting at 0) while the solver
+    // normalizes the body angle to [-180, 180], so the raw difference can be a full turn for one step
+    const da = ((((b.a - a.a) % 360) + 540) % 360) - 180;
     this._writeTransform(a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha, a.a + da * alpha);
   }
 
