@@ -23,6 +23,9 @@ npm run smoke           # smoke test headless (cần `npm run dev` đang chạy)
 `npm run smoke` mở game bằng Chrome headless, chơi thử (biến `BOT=1` bật bot tự lái, `SECS=<n>` số giây) và trả
 mã lỗi 1 nếu trang có exception. Chrome được tìm ở vị trí mặc định của từng hệ điều hành, hoặc chỉ định bằng `CHROME=<đường dẫn>`.
 
+Bộ kịch bản QA đầy đủ hơn (tutorial, hồi sinh, shop/garage/meta, bot chơi mọi level, quét reset chunk) nằm trong `tools/qa/`;
+kết quả đợt kiểm thử gần nhất và cách chạy ở [QA_REPORT.md](QA_REPORT.md).
+
 Điều khiển: giữ chuột / chạm / Space / ↑ để tăng tốc trên mặt đất và lộn (flip) khi ở trên không. `Esc`/`P` tạm dừng, `R` chơi lại.
 Cài đặt (nút bánh răng) có nút **Reset progress** để xoá save và chơi lại từ tutorial.
 
