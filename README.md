@@ -47,6 +47,13 @@ Game dùng kit `JS_SDK_2.0/` (build + analytics) và bộ leaderboard `src/leade
 - Chữ cho người chơi của phần SDK nằm trong `Language/en.json`; `Icons/` là favicon + ảnh màn loading (GM Loader).
 - Bước nén audio và PNG → WebP của kit đang tắt (`JS_SDK_2.0/config.mjs`): audio là .ogg, tên PNG nằm trong JSON export.
 
+> **Lưu ý bảo mật – khóa ký điểm leaderboard.** `scoreSigningKeyHex` (HMAC-SHA256 ký token điểm
+> `<playerId>:<score*1000>:<unix/30>`) được ghi thẳng trong `src/leaderboard/config.mjs` và lặp lại trong
+> `src/leaderboard/src/check-hmac.mjs` (script tự kiểm). Ai có khóa này đều ký được điểm giả.
+> - Khóa buộc phải đi theo bản phát hành vì client tự ký; trong build nó chỉ được làm rối (`javascript-obfuscator`), không giấu được hẳn.
+> - Trong repo khóa ở dạng đọc được: giữ repo **private**. Nếu repo từng public hoặc khóa bị lộ, xin bên vận hành khóa mới và
+>   thay ở cả hai file trên.
+
 ## Cấu trúc
 
 ```
