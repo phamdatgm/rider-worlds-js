@@ -1,9 +1,10 @@
 // Persistent save. One JSON document holding what the Unity build kept in its save slots
 // (currencies, cards, rank, reward tracks, challenges, worlds, levels, high scores, tutorials, settings).
-// It is the "save" area of the SDK's single localStorage key azgames.<gameCode> (src/sdk/storage.js, the only
-// module allowed to touch localStorage). The pre-SDK keys rider-worlds-save-v2 / -v1 are folded in once as the
-// "save" / "saveV1" areas (src/config.mjs legacyKeys).
-import { gameData } from '../sdk/storage.js';
+// It is the "save" area of the kit's save, sdk.storage (src/sdk/storage.js: one localStorage key azgames.<gameCode>).
+// Saves of older builds are converted into it at boot by src/legacy-save.js ("save" / "saveV1" areas).
+import { getSDK } from '../sdk/gmsdkjs-shim.js';
+
+const storage = () => getSDK().storage;
 
 const AREA = 'save';
 const OLD_AREA = 'saveV1';
@@ -37,12 +38,10 @@ export const Save = {
   dirty: false,
 
   load() {
-    let s = gameData.get(AREA, null);
-    if (!Object.keys(s).length) {
-      const old = gameData.get(OLD_AREA, null);
-      s = Object.keys(old).length ? migrateV1(old) : null;
-    }
-    if (Object.keys(gameData.get(OLD_AREA)).length) gameData.set(OLD_AREA, undefined);
+    let s = storage().get(AREA, null);
+    const old = storage().get(OLD_AREA, null);
+    if (!s && old) s = migrateV1(old);
+    if (old) storage().set(OLD_AREA, undefined);
     const d = defaults();
     if (s) {
       for (const k of Object.keys(s)) d[k] = s[k];
@@ -56,7 +55,7 @@ export const Save = {
 
   save() {
     this.dirty = false;
-    gameData.set(AREA, this.data);
+    storage().set(AREA, this.data);
   },
 
   /** batch writes: flushed at the end of the frame */
@@ -67,9 +66,9 @@ export const Save = {
   },
 
   reset() {
-    gameData.set(AREA, undefined);
-    gameData.set(OLD_AREA, undefined);
-    gameData.flush();
+    storage().set(AREA, undefined);
+    storage().set(OLD_AREA, undefined);
+    storage().flush();
     this.data = defaults();
   },
 

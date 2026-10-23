@@ -3,6 +3,7 @@ import { EventAction } from '../engine/core.js';
 import { Save } from './save.js';
 import { Meta, T } from './data.js';
 import { Currencies, CurrencyType } from './currency.js';
+import { Analytics } from '../analytics/index.js';
 import { WorldManager } from './worlds.js';
 
 export const CardType = { Invalid: 0, Currency: 1, Vehicle: 10000, VehicleColor: 20000, VehicleTrail: 30000, VehicleDeath: 31000, VehicleLanding: 32000, Booster: 40000 };
@@ -190,10 +191,12 @@ export class Card {
       const after = this.HighestUnlockedRank;
       for (let i = before + 1; i <= after; i++) this.SetUnseen(i, true);
       Save.setDirty();
+      Analytics.itemGet(this, n, source);
       return n;
     }
     this.EnsureSaveData().total += amount;
     Save.setDirty();
+    Analytics.itemGet(this, amount, source);
     CardService.onBoostersChanged.Raise();
     return amount;
   }
@@ -204,6 +207,7 @@ export class Card {
     if (!s || s.total <= 0) return false;
     s.total--;
     Save.setDirty();
+    Analytics.itemUse(this);
     CardService.onBoostersChanged.Raise();
     return true;
   }
@@ -276,6 +280,7 @@ export const CardService = {
     if (!card || card.IsLocked || this.IsEquipped(card)) return;
     Save.data.cards.equipped[card.Type] = card.ID;
     Save.setDirty();
+    Analytics.itemEquip(card);
     this.onEquippedChanged.Raise(card.Type);
   },
 

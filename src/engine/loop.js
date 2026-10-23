@@ -7,6 +7,7 @@ import { Render } from './render.js';
 let last = 0;
 let accumulator = 0;
 let running = false;
+let paused = false;
 export const LoopHooks = { beforeUpdate: [], afterLateUpdate: [] };
 
 function callAll(method) {
@@ -25,6 +26,11 @@ function callAll(method) {
 function frame(nowMs) {
   if (!running) return;
   requestAnimationFrame(frame);
+  if (paused) {
+    // nothing advances while an ad is on screen; the frame after it starts with dt 0
+    last = 0;
+    return;
+  }
   const now = nowMs / 1000;
   let dt = last ? now - last : 0;
   last = now;
@@ -68,6 +74,12 @@ function frame(nowMs) {
   for (const h of LoopHooks.afterLateUpdate) h();
   flushDestroy();
   Render.render();
+}
+
+/** the SDK's onPause / onResume (an ad is on screen): the whole game stands still */
+export function pauseLoop(p) {
+  paused = p;
+  last = 0;
 }
 
 export function startLoop() {

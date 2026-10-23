@@ -1,97 +1,72 @@
-// Portal SDK wiring (JS_SDK_2.0 + JS_Leaderboard), the only place the game talks to them: SDK start-up, the
-// publisher's standard analytics events (JS_SDK_2.0/docs/ANALYTICS.md section 4), the Endless score submit to
-// leaderboard-highscore and the leaderboard button of the main menu.
-import { analytics, startAnalytics, scoreBucket } from './sdk/analytics.js';
-import { startGmSdk, getProfile, updateProfile } from './sdk/gmsdk.js';
-import { connectSdk, connectProfile, setAnalytics, leaderboard } from './leaderboard/src/leaderboard.js';
-import { LeaderboardPopup } from './leaderboard/ui/leaderboardPopup.js';
-import { Time } from './engine/core.js';
+// Portal wiring (GMSDK_JS 1.0.1, docs/GMSDK_JS/docs/INTEGRATION.md): the manifest, gameplayStart / gameplayStop
+// around real play, the leaderboard (board, the Endless score submit to leaderboard-highscore, the main menu's
+// button) and the version + copyright line of the Settings popup. Ads: src/ads.js; tracking: src/analytics/.
+import { copyrightText } from './sdk/copyright.js';
+import { t } from './sdk/i18n.js';
+import { createLeaderboard } from './sdk/leaderboard/leaderboard.js';
+import { openLeaderboard } from './sdk/leaderboard/ui.js';
 import { Assets, getPrefabJson } from './engine/assets.js';
 import { Instantiate } from './engine/instantiate.js';
 import { LoopHooks } from './engine/loop.js';
-import { RunMode, EndState, DeathReason } from './game/state.js';
+import { RunMode } from './game/state.js';
 import { SceneHost } from './uiscripts/scenes.js';
 import { AudioSampleID } from './uiscripts/services.js';
+import { UI_PauseMenu } from './uiscripts/settings.js';
+import { Analytics } from './analytics/index.js';
 
-let sdkReady = null;
+export const Portal = {
+  sdk: null,
+  /** public/game.json */
+  manifest: null,
+  /** createLeaderboard() of the kit; null when game.json has no leaderboardId */
+  board: null,
+};
 
-/** at boot, before the first event: GMGameSDK load + init + anonymous sign-in; the leaderboard borrows it */
-export function startPortal() {
-  connectSdk(startGmSdk);
-  connectProfile({ getProfile, updateProfile });
-  setAnalytics((name, params) => analytics.log(name, params));
-  sdkReady = startAnalytics().catch(() => null);
-  addEventListener('error', (e) => analytics.log('error', { where: 'window', message: e?.message ?? '' }));
-  addEventListener('unhandledrejection', (e) => analytics.log('error', { where: 'promise', message: e?.reason?.message ?? String(e?.reason) }));
-  return sdkReady;
+/** at boot, right after game.json: the leaderboard signs in through gmsdkjs in the background */
+export function startPortal(sdk, manifest) {
+  Portal.sdk = sdk;
+  Portal.manifest = manifest;
+  Portal.board = manifest.leaderboardId ? createLeaderboard({ sdk, boardId: manifest.leaderboardId }) : null;
+}
+
+/** "V<version>" and the copyright line ('' on the portals that show none): the Settings popup's footer */
+export function footerText() {
+  const version = Portal.manifest ? `V${Portal.manifest.version}` : '';
+  return [version, copyrightText(Portal.sdk)].filter(Boolean).join('\n');
 }
 
 // ---------------------------------------------------------------- runs
 
-const minutes = (s) => Math.round((s / 60) * 100) / 100;
-
-/** "level" of the standard events: E1..E3 for the Endless worlds, the level id otherwise */
-function levelOf(mode) {
-  if (!mode) return '';
-  if (mode.RunMode === RunMode.Endless) return `E${(mode.world ?? 0) + 1}`;
-  return String(mode.level?.id ?? mode.RunMode);
-}
-
-let runIndex = 0;
-let runStartedAt = 0;
-let playSeconds = 0;
-let sessionSeconds = 0;
-
-/** PlayGame -> (LiveTime every 30 s) -> EndGame + DeathTime | CompleteGame + CompleteTime | QuitTime | RestartTime */
+/**
+ * gameplayStart while the player really plays: a run is going and no pause menu is open (the revive prompt and the
+ * end of a run have IsRunning false). Every run ends with one score submit for Endless.
+ */
 export function trackRuns(runState) {
-  runState.runStarted.AddListener(() => {
-    runIndex++;
-    runStartedAt = performance.now();
-    const mode = runState.Mode;
-    analytics.log('PlayGame', { GameCount: runIndex });
-    analytics.log('run_start', { run_index: runIndex, level: levelOf(mode) });
+  let playing = false;
+  LoopHooks.beforeUpdate.push(() => {
+    const now = !!runState.IsRunning && ![...UI_PauseMenu.Instances].some((m) => m.gameObject.activeInHierarchy);
+    if (now === playing) return;
+    playing = now;
+    if (now) Portal.sdk?.gameplayStart();
+    else Portal.sdk?.gameplayStop();
   });
-
   runState.runFinished.AddListener(() => {
-    const mode = runState.Mode;
-    const level = levelOf(mode);
-    const end = runState.RunEndState;
     const score = Math.round(runState.StatTracker?.Score ?? 0);
-    const time = minutes((performance.now() - runStartedAt) / 1000);
-    const reason = end.deathReason;
-    if (reason === DeathReason.RunCancel) analytics.log('QuitTime', { level, time });
-    else if (reason === DeathReason.RunReset) analytics.log('RestartTime', { level, time });
-    else if (end.endState === EndState.Victory) {
-      analytics.log('CompleteGame', { Score: score });
-      analytics.log('CompleteTime', { level, time });
-    } else {
-      analytics.log('EndGame', { Score: score });
-      analytics.log('DeathTime', { level, time });
-    }
-    analytics.log('run_end', {
-      level,
-      score,
-      score_bucket: scoreBucket(score, [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000]),
-      cause: Object.keys(DeathReason).find((k) => DeathReason[k] === reason) ?? String(reason),
-      duration_s: Math.round((performance.now() - runStartedAt) / 100) / 10,
-      run_index: runIndex,
-    });
-    // every Endless world goes to the one board; the backend keeps the best score per period and refuses 0
-    if (mode?.RunMode === RunMode.Endless && score > 0) leaderboard.postScore(score);
+    // every Endless world goes to the one board; the server keeps the best score per period and refuses 0
+    if (runState.Mode?.RunMode === RunMode.Endless && score > 0) Portal.board?.submit(score);
   });
-
-  setInterval(() => {
-    if (document.hidden) return;
-    if (++sessionSeconds % 30 === 0) analytics.log('SessionTime', { Time: minutes(sessionSeconds) });
-    if (runState.IsRunning && Time.timeScale > 0 && ++playSeconds % 30 === 0) {
-      analytics.log('LiveTime', { level: levelOf(runState.Mode), time: minutes(playSeconds) });
-    }
-  }, 1000);
 }
 
-// ---------------------------------------------------------------- menu: loaded_game + leaderboard button
+// ---------------------------------------------------------------- menu: leaderboard button
 
+/** the open leaderboard screen of the kit (sdk/leaderboard/ui.js), or null */
 let popup = null;
+
+function openBoard() {
+  if (popup || !Portal.board) return;
+  Analytics.featureOpen('leaderboard', 'home');
+  popup = openLeaderboard({ board: Portal.board, t, onClose: () => (popup = null) });
+}
 
 const BUTTON_PREFAB = 'Runtime/LeaderboardButton';
 const TOP_CONTAINER = 'UI Container/BodyContainer/PageContainer/Home Screen/TopContainer';
@@ -151,7 +126,7 @@ function addLeaderboardButton(menuRoot) {
   const go = Instantiate(BUTTON_PREFAB, top);
   go.GetComponent('Button').onClick.AddListener(() => {
     AudioSampleID.UI_ButtonClick_Generic.Play();
-    popup.show();
+    openBoard();
   });
   // the Challenges / Claim Bonus overlays fade the High Score display out through its CanvasGroup (MMFeedbacks
   // Transition In/Out); that group is never interactable, so the button copies it instead of sitting under it
@@ -165,10 +140,12 @@ function addLeaderboardButton(menuRoot) {
   };
 }
 
+/** the leaderboard screen is open (src/analytics/ screen tracking) */
+export const leaderboardOpen = () => !!popup;
+
 /** the first menu frame is on screen */
-export async function menuReady(ready = sdkReady) {
-  const loadTimeMs = Math.round(performance.now() - (window.GM_LOAD_START ?? 0));
-  popup = new LeaderboardPopup(document.body);
+export function menuReady() {
+  if (!Portal.board) return;
   // the Menu scene is instantiated again every time the player comes back from a run
   let decorated = null;
   let sync = null;
@@ -179,8 +156,6 @@ export async function menuReady(ready = sdkReady) {
       sync = addLeaderboardButton(root);
     }
     if (root) sync?.();
-    if (!root && popup.isOpen) popup.hide();
+    if (!root) popup?.close();
   });
-  await ready;
-  analytics.log('loaded_game', { load_time_ms: loadTimeMs });
 }

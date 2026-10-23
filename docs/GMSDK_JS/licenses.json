@@ -1,0 +1,73 @@
+{
+  "roots": ["public/assets", "public/icons"],
+  "assets": [
+    {
+      "files": ["public/assets/prefabs/**", "public/assets/so/**", "public/assets/so_bundle.json", "public/assets/manifest.json", "public/assets/materials.json", "public/assets/meshes.bin", "public/assets/meshes.json", "public/assets/anim/**", "public/assets/meta.json"],
+      "type": "data",
+      "origin": "unknown",
+      "license": "unknown",
+      "derivedFrom": "the Unity project of Rider Worlds (scenes, prefabs, ScriptableObjects, meshes, animations, texts), exported by tools/export*.py",
+      "notes": "Port of the Unity game: who holds the rights to the original content is to be confirmed by the owner"
+    },
+    {
+      "files": ["public/assets/textures/**", "public/assets/textures.json", "public/assets/ui/**", "public/assets/ui_extra/**"],
+      "type": "art",
+      "origin": "unknown",
+      "license": "unknown",
+      "derivedFrom": "the Unity project of Rider Worlds (textures, UI sprites, TextMeshPro font atlases), exported by tools/export.py / export_ui_extra.py",
+      "notes": "Port of the Unity game: rights to the original art and the TMP fonts (Nulshock, Helmet) to be confirmed by the owner"
+    },
+    {
+      "files": ["public/assets/audio/**"],
+      "type": "sound",
+      "origin": "unknown",
+      "license": "unknown",
+      "derivedFrom": "the Unity project of Rider Worlds (music: ambient, chrome, dash, gridlock, hyperdrive, momentum; sound effects), exported by tools/export.py",
+      "notes": "Port of the Unity game: rights to the original music and sounds to be confirmed by the owner"
+    },
+    {
+      "files": ["public/icons/loading.webp"],
+      "type": "art",
+      "origin": "unknown",
+      "license": "unknown",
+      "derivedFrom": "key art of Rider Worlds (the loading screen image of the JS_SDK_2.0 builds)",
+      "notes": "To be confirmed by the owner"
+    },
+    {
+      "files": ["public/icons/logo.webp", "public/icons/loader.css"],
+      "type": "art",
+      "origin": "in-house",
+      "license": "in-house",
+      "source": "GMSDK_JS kit 1.0.1, loading/icons/ (publisher logo and loading screen style)"
+    },
+    {
+      "files": ["public/assets/leaderboard/**"],
+      "type": "art",
+      "origin": "unknown",
+      "license": "unknown",
+      "source": "GMSDK_JS kit 1.0.1, leaderboard/flags/ and countries.json",
+      "notes": "Copied unchanged from the kit, which does not state where the flags come from"
+    },
+    {
+      "files": ["game.js: three"],
+      "type": "code",
+      "origin": "third-party",
+      "license": "MIT",
+      "source": "https://github.com/mrdoob/three.js"
+    },
+    {
+      "files": ["game.js: planck"],
+      "type": "code",
+      "origin": "third-party",
+      "license": "MIT",
+      "source": "https://github.com/piqnt/planck.js"
+    },
+    {
+      "files": ["game.js: lz-string (src/sdk/storage.js)"],
+      "type": "code",
+      "origin": "third-party",
+      "license": "MIT",
+      "source": "https://github.com/pieroxy/lz-string"
+    }
+  ]
+}

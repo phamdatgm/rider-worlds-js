@@ -3,6 +3,7 @@ import { EventAction } from '../engine/core.js';
 import { Save } from './save.js';
 import { Currencies } from './currency.js';
 import { CardService, RANK_TYPES, CardType } from './cards.js';
+import { Analytics } from '../analytics/index.js';
 import { WorldManager, parseUnlock } from './worlds.js';
 
 /**
@@ -162,6 +163,7 @@ export class RewardTrack {
     if (step.required > this.progression || this.IsClaimed(step)) return null;
     this.state.claimed.push(step.sid);
     const r = grantReward(step, source || this.uid);
+    Analytics.featureAction(this.uid === 'RVRewardTrack' ? 'rv_reward_track' : 'reward_track', 'claim', step.id ?? null);
     Save.setDirty();
     this.onStateChange.Raise();
     return r;

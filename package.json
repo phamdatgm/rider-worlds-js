@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node JS_SDK_2.0/tools/build.mjs",
-    "build:web": "vite build",
+    "build": "node docs/GMSDK_JS/tools/bump-version.mjs && vite build && node docs/GMSDK_JS/tools/compress.mjs && node tools/music-mp3.mjs && node docs/GMSDK_JS/tools/assemble.mjs && node tools/check-package.mjs && node docs/GMSDK_JS/tools/zip.mjs",
     "preview": "vite preview",
     "smoke": "node tools/smoke.mjs smoke-out",
-    "export-assets": "python tools/export.py && python tools/export_meta.py && python tools/export_ui_extra.py && python tools/export_anim.py && python tools/tmp_dynamic.py"
+    "export-assets": "python tools/export.py && python tools/export_meta.py && python tools/export_ui_extra.py && python tools/export_anim.py && python tools/tmp_dynamic.py",
+    "check": "node tools/check-package.mjs"
   },
   "dependencies": {
     "planck": "^1.5.1",
@@ -18,8 +18,8 @@
   "devDependencies": {
     "esbuild": "^0.28.2",
     "ffmpeg-static": "^5.3.0",
-    "javascript-obfuscator": "^5.9.0",
     "puppeteer-core": "^24.43.1",
+    "sharp": "^0.35.5",
     "vite": "^8.3.4"
   }
 }

@@ -1,12 +1,11 @@
 // Meta-game data exported by tools/export_meta.py (cards, challenges, rank, tracks, shop, texts).
 import { assetUrl } from '../engine/assets.js';
+import { fetchRetry } from '../sdk/net.js';
 
 export const Meta = {
   data: null,
   async load() {
-    const r = await fetch(assetUrl('meta.json'));
-    if (!r.ok) throw new Error(`meta.json: ${r.status}`);
-    this.data = await r.json();
+    this.data = await (await fetchRetry(assetUrl('meta.json'))).json();
     return this.data;
   },
 };

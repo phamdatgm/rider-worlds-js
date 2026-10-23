@@ -1,7 +1,11 @@
 // Loading of the exported Unity content (see tools/export.py for the formats).
 import * as THREE from 'three';
+import { fetchRetry, loadImage } from '../sdk/net.js';
 
 const BASE = (import.meta.env?.BASE_URL || '/') + 'assets/';
+
+/** set by the game: a file that could not load after the retries of sdk/net.js (load_error tracking) */
+export const AssetEvents = { loadError: (file) => {} };
 
 export const Assets = {
   manifest: null,
@@ -16,28 +20,30 @@ export const Assets = {
   geometries: new Map(),
   textures: new Map(),
   audioBuffers: new Map(),
+  audioFiles: new Map(), // clip name -> file name in audio/ (audio/files.json)
 };
 
 export function assetUrl(rel) {
   return BASE + rel.split('/').map(encodeURIComponent).join('/');
 }
 
+/** every load goes through the kit's sdk/net.js: time limit, 3 tries, never a hanging loading screen */
 async function fetchJson(rel) {
-  const r = await fetch(assetUrl(rel));
-  if (!r.ok) throw new Error(`${rel}: ${r.status}`);
-  return r.json();
+  return (await fetchRetry(assetUrl(rel))).json();
 }
 
 /** Load the JSON indexes; mesh data is fetched per mode with loadWantedMeshes(). */
 export async function loadCore(onProgress = () => {}) {
-  const [manifest, so, materials, meshIndex, textureInfo] = await Promise.all([
+  const [manifest, so, materials, meshIndex, textureInfo, audioFiles] = await Promise.all([
     fetchJson('manifest.json'),
     fetchJson('so_bundle.json'),
     fetchJson('materials.json'),
     fetchJson('meshes.json'),
     fetchJson('textures.json'),
+    fetchJson('audio/files.json'),
   ]);
   Object.assign(Assets, { manifest, so, materials, meshIndex, textureInfo });
+  for (const f of audioFiles) Assets.audioFiles.set(f.replace(/\.[^.]+$/, ''), f);
   onProgress(1);
 }
 
@@ -63,17 +69,10 @@ export async function loadWantedMeshes(onProgress) {
   let got = 0;
   let whole = null;
   const fetchRange = async (g) => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        // no-store: Chrome's HTTP cache rejects some concurrent range requests on the same URL
-        const r = await fetch(assetUrl('meshes.bin'), { headers: { Range: `bytes=${g.start}-${g.end - 1}` }, cache: 'no-store' });
-        if (r.status === 200) return { whole: await r.arrayBuffer() };
-        if (r.status === 206) return { buf: await r.arrayBuffer() };
-      } catch (e) {
-        if (attempt === 2) throw e;
-      }
-    }
-    throw new Error('mesh range request failed');
+    // no-store: Chrome's HTTP cache rejects some concurrent range requests on the same URL
+    const r = await fetchRetry(assetUrl('meshes.bin'), { headers: { Range: `bytes=${g.start}-${g.end - 1}` }, cache: 'no-store' });
+    if (r.status === 206) return { buf: await r.arrayBuffer() };
+    return { whole: await r.arrayBuffer() };
   };
   const queue = groups.slice();
   const worker = async () => {
@@ -93,7 +92,7 @@ export async function loadWantedMeshes(onProgress) {
     await Promise.all([worker(), worker(), worker(), worker()]);
   } catch (e) {
     console.warn('range requests failed, downloading all meshes', e);
-    whole = await (await fetch(assetUrl('meshes.bin'))).arrayBuffer();
+    whole = await (await fetchRetry(assetUrl('meshes.bin'))).arrayBuffer();
   }
   if (whole) for (const id of Object.keys(Assets.meshIndex)) Assets.meshData.set(id, { buf: whole, base: 0 });
 }
@@ -110,6 +109,8 @@ export function loadPrefab(id) {
     collectMeshRefs(json.nodes);
     return json;
   });
+  // a failed load is not kept: the next call tries again
+  p.catch(() => Assets.prefabPromises.delete(id));
   Assets.prefabPromises.set(id, p);
   return p;
 }
@@ -206,7 +207,6 @@ function buildGeometry(e, { buf, base }) {
 
 // ---------------------------------------------------------------- textures
 
-const loader = new THREE.TextureLoader();
 let whiteTex = null;
 
 export function getWhiteTexture() {
@@ -222,7 +222,18 @@ export function getTexture(id) {
   if (Assets.textures.has(id)) return Assets.textures.get(id);
   const info = Assets.textureInfo[id];
   if (!info) return null;
-  const tex = loader.load(assetUrl(`textures/${info.file}`));
+  // filled in when the image is there (like TextureLoader.load), through net.js: time limit and retries
+  const tex = new THREE.Texture();
+  loadImage(assetUrl(`textures/${info.file}`)).then(
+    (img) => {
+      tex.image = img;
+      tex.needsUpdate = true;
+    },
+    (e) => {
+      console.warn('texture', id, e);
+      AssetEvents.loadError(`textures/${info.file}`);
+    },
+  );
   tex.colorSpace = THREE.NoColorSpace; // gamma pipeline: raw values
   const wrap = (w) => (w === 1 ? THREE.ClampToEdgeWrapping : w === 2 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping);
   tex.wrapS = wrap(info.wrapU ?? 0);
@@ -243,26 +254,23 @@ export function getTexture(id) {
 
 // ---------------------------------------------------------------- audio
 
-/* global __GM_BUILD__ */
-const BUILD = typeof __GM_BUILD__ !== 'undefined' && __GM_BUILD__;
-
 /**
- * The dev server serves the .ogg the exporter wrote. The build re-encodes the music to .mp3 (config.audio in
- * JS_SDK_2.0/config.mjs, which reads the same manifest.music lists) and ships the effects' .ogg as they are.
+ * audio/files.json names every clip's file: the exporter writes .ogg, the kit's compress step turns them into .mp3 in
+ * the package (older Safari cannot decode Vorbis) and rewrites that list with them.
  */
 function audioFile(id) {
   const name = id.split('/').pop();
-  const isMusic = BUILD && Object.values(Assets.manifest?.music ?? {}).some((v) => Array.isArray(v) && v.includes(id));
-  return `${name}.${isMusic ? 'mp3' : 'ogg'}`;
+  return Assets.audioFiles.get(name) ?? `${name}.ogg`;
 }
 
 export async function loadAudioBuffer(ctx, id) {
   if (Assets.audioBuffers.has(id)) return Assets.audioBuffers.get(id);
-  const p = fetch(assetUrl(`audio/${audioFile(id)}`))
+  const p = fetchRetry(assetUrl(`audio/${audioFile(id)}`))
     .then((r) => r.arrayBuffer())
     .then((b) => ctx.decodeAudioData(b))
     .catch((e) => {
       console.warn('audio', id, e);
+      AssetEvents.loadError(`audio/${audioFile(id)}`);
       return null;
     });
   Assets.audioBuffers.set(id, p);

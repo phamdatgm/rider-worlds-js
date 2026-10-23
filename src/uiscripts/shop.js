@@ -1,6 +1,6 @@
 // Shop Screen (UI_ShopPage): CW.Shop (BaseScrollShop, BaseShopSection, ShopItemUI, PaymentHandler, Ticker) and the
 // game sections (RV reward track, chests, daily deals, rubies) with their items, confirmations and popups.
-// Ads / IAP removed as in the shipped build: rewarded-video payments succeed at once, IAP products are unavailable.
+// Rewarded-video payments play a rewarded ad of the kit's SDK (src/ads.js); IAP products are unavailable.
 import { MonoBehaviour, Destroy } from '../engine/scene.js';
 import { EventAction, WaitWhile, WaitForSeconds, Time } from '../engine/core.js';
 import { registerComponent, registerSO, ScriptableObject, Instantiate, ComponentRegistry, getRuntimeSO } from '../engine/instantiate.js';
@@ -22,6 +22,8 @@ import { PlayerRankManager } from './services.js';
 import { MainMenuManager, MainMenuPage } from './home.js';
 import { rewardAsset, hexInts } from './rewards.js';
 import { rarityData, localizeRarity, replaceTerm } from './garage.js';
+import { Ads, AdResult } from '../ads.js';
+import { Analytics, snake } from '../analytics/index.js';
 
 // ---------------------------------------------------------------- C# helpers
 
@@ -253,8 +255,27 @@ export class RewardDefinition {
 /** UI_RewardType.Shop */
 const UI_REWARD_SHOP = 6;
 
+/**
+ * The rewarded video of a shop payment: `onWatched` then Success, Cancelled when it was closed early; no video to show
+ * opens the "No ads available" popup and answers Failure (NotAvailable means "come back tomorrow" in the shop).
+ */
+function payWithAd(placement, onWatched, cb) {
+  Ads.rewarded(placement).then((r) => {
+    if (r === AdResult.Success) onWatched?.();
+    if (r === AdResult.NotAvailable) Ads.showNoAd(UI_ShopPage.Instance);
+    cb?.(r === AdResult.NotAvailable ? PaymentResponse.Failure : r);
+  });
+}
+
+/** no rewarded video ready: the purchase button shows the no-ad text */
+const waitingForAd = (payment) => payment?.pay === PaymentOption.RewardedVideo && !Ads.available;
+
 /** CW.Shop.PaymentHandler (ShopService.DefaultPaymentHandler) */
 export class PaymentHandler {
+  get AdPlacement() {
+    return 'shop_item';
+  }
+
   IsBlockedByTimer() {
     return false;
   }
@@ -281,8 +302,10 @@ export class PaymentHandler {
   HandlePayment(payment, sink, cb) {
     switch (payment.pay) {
       case PaymentOption.Free:
-      case PaymentOption.RewardedVideo:
         cb?.(PaymentResponse.Success);
+        break;
+      case PaymentOption.RewardedVideo:
+        payWithAd(this.AdPlacement, null, cb);
         break;
       case PaymentOption.IAP:
         cb?.(PaymentResponse.Failure);
@@ -301,8 +324,8 @@ export class PaymentHandler {
     return true;
   }
 
-  IsWaitingForAd() {
-    return false;
+  IsWaitingForAd(payment) {
+    return waitingForAd(payment);
   }
 }
 
@@ -318,6 +341,10 @@ function sstate() {
 export class ShopPaymentHandler {
   constructor(id) {
     this.id = id;
+  }
+
+  get AdPlacement() {
+    return this.id === 'LootboxShop' ? 'shop_chest' : `shop_${snake(this.id)}`;
   }
 
   /** SaveData {freeAmountUsed, freeNextAvailable, videoAmountUsed, videoNextAvailable}; the chest handler shares meta/shop.js state */
@@ -390,10 +417,14 @@ export class ShopPaymentHandler {
         break;
       case PaymentOption.RewardedVideo:
         if (this.CanBePurchased(payment)) {
-          // rewarded ad removed: the successful ad result path is taken at once
-          [d.videoAt, d.videoUsed] = ShopPaymentHandler.handleTimerLogic(d.videoAt || 0, d.videoUsed || 0, payment);
-          Save.setDirty();
-          cb(PaymentResponse.Success);
+          payWithAd(
+            this.AdPlacement,
+            () => {
+              [d.videoAt, d.videoUsed] = ShopPaymentHandler.handleTimerLogic(d.videoAt || 0, d.videoUsed || 0, payment);
+              Save.setDirty();
+            },
+            cb,
+          );
         } else cb?.(PaymentResponse.NotAvailable);
         break;
       default:
@@ -405,12 +436,16 @@ export class ShopPaymentHandler {
     return true;
   }
 
-  IsWaitingForAd() {
-    return false;
+  IsWaitingForAd(payment) {
+    return waitingForAd(payment);
   }
 }
 
 export class DailyDealPaymentHandler {
+  get AdPlacement() {
+    return 'daily_deal';
+  }
+
   IsBlockedByTimer() {
     return false;
   }
@@ -426,8 +461,8 @@ export class DailyDealPaymentHandler {
   }
 
   HandlePayment(payment, sink, cb) {
-    // rewarded video granted at once (was Ads.RewardedAd.Show(DailyDeals))
-    if (payment.pay === PaymentOption.RewardedVideo) cb?.(PaymentResponse.Success);
+    // Ads.RewardedAd.Show(DailyDeals)
+    if (payment.pay === PaymentOption.RewardedVideo) payWithAd(this.AdPlacement, null, cb);
     else ShopService.DefaultPaymentHandler.HandlePayment(payment, sink, cb);
   }
 
@@ -1487,6 +1522,7 @@ export class ShopItemUI extends MonoBehaviour {
   OnEnable() {
     this.stickerImage.Show(!!this.stickerText.text);
     if (this.PaymentHandler) this.SetupPurchaseButton();
+    if (this.PaymentDefinition?.pay === PaymentOption.RewardedVideo && this.CanBePurchased) Analytics.adOffer(this.PaymentHandler.AdPlacement ?? 'shop_item');
   }
 
   OnDisable() {
@@ -1930,13 +1966,24 @@ export class HardCurrencyShopGiftItem extends HardCurrencyShopItem {
 
   OnClaim() {
     if (!this.settings.CanClaimGift) return;
-    // rewarded video treated as watched
-    this.settings.ClaimGift();
-    Currencies.Hard.Gain(this.settings.giftRubyAmount, 'Ads');
-    const rh = MainMenuManager.Instance?.RewardHandler;
-    rh?.OverrideParticleStart(UI_REWARD_SHOP, this.enabledGift.transform);
-    rh?.SpawnReward([new RewardDefinition({ amount: this.settings.giftRubyAmount, rewardID: 'Currency_Hard', rewardType: UI_REWARD_SHOP })]);
-    this.UpdateUI();
+    Ads.watch(
+      'shop_gift',
+      () => {
+        if (!this.settings.CanClaimGift) return;
+        this.settings.ClaimGift();
+        Currencies.Hard.Gain(this.settings.giftRubyAmount, 'Ads');
+        const rh = MainMenuManager.Instance?.RewardHandler;
+        rh?.OverrideParticleStart(UI_REWARD_SHOP, this.enabledGift.transform);
+        rh?.SpawnReward([new RewardDefinition({ amount: this.settings.giftRubyAmount, rewardID: 'Currency_Hard', rewardType: UI_REWARD_SHOP })]);
+        this.UpdateUI();
+      },
+      UI_ShopPage.Instance,
+    );
+  }
+
+  OnEnable() {
+    super.OnEnable();
+    if (this.settings?.CanClaimGift) Analytics.adOffer('shop_gift');
   }
 
   Update() {
@@ -2152,6 +2199,7 @@ export class UI_DailyDealShopRefreshPopUp extends MonoBehaviour {
     this.buyCurrencyButton.onClick.AddListener(() => this.OnBuyCurrency());
     this.refreshCount.SetText(csFormat(this.refreshFormat, this.settings.refreshesPerDay - this.settings.RefreshCount, this.settings.refreshesPerDay));
     this.currencyBtnTxt.text = String(cost);
+    Analytics.adOffer('daily_deal_refresh');
   }
 
   Close() {
@@ -2159,9 +2207,14 @@ export class UI_DailyDealShopRefreshPopUp extends MonoBehaviour {
   }
 
   OnBuyAd() {
-    // rewarded video removed: reward granted at once
-    this.payAction();
-    this.Close();
+    Ads.watch(
+      'daily_deal_refresh',
+      () => {
+        this.payAction();
+        this.Close();
+      },
+      this,
+    );
   }
 
   OnBuyCurrency() {
@@ -2240,6 +2293,7 @@ export class UI_RVRewardTrack extends MonoBehaviour {
     if (this.rewardTrack.IsDayDifferent) this.rewardTrack.ResetTrackAndDay();
     this.SetEntriesState();
     this.isActive = true;
+    if (!this.rewardTrack.IsFullyUnlocked) Analytics.adOffer('rv_reward_track');
   }
 
   OnDisable() {
@@ -2263,8 +2317,8 @@ export class UI_RVRewardTrack extends MonoBehaviour {
   }
 
   OnAdButtonPressed() {
-    // rewarded video removed: RVRewardTrack advances by one at once
-    this.rewardTrack.HandleProgress(1);
+    if (this.rewardTrack.IsFullyUnlocked) return;
+    Ads.watch('rv_reward_track', () => this.rewardTrack.HandleProgress(1), this);
   }
 
   ResetTrack() {

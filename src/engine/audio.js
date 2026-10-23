@@ -91,6 +91,8 @@ export const AudioService = {
   musicEnabled: true,
   sfxEnabled: true,
   music: null,
+  /** an ad is on screen (the SDK's onPause): the context stays suspended until onResume */
+  paused: false,
 
   init() {
     try {
@@ -120,7 +122,7 @@ export const AudioService = {
       }
     }
     const unlock = () => {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume();
     };
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
@@ -157,6 +159,13 @@ export const AudioService = {
 
   PlayLooping(id) {
     return this.Play(id, true);
+  },
+
+  setPaused(p) {
+    this.paused = p;
+    if (!this.ctx) return;
+    if (p) this.ctx.suspend().catch(() => {});
+    else this.ctx.resume().catch(() => {});
   },
 
   setSfx(on) {

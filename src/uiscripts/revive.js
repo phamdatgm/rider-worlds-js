@@ -1,5 +1,5 @@
 // Revive Screen prefab (HUD.revivePrefab): UI_Revive + trigger infos, UI_PaymentText and the RevivePaymentHandler SO.
-// No ads SDK: rewarded-video revives are granted immediately (like the shipped RevivePaymentHandler).
+// The rewarded-video revive plays a rewarded ad of the kit's SDK (src/ads.js, placement "revive").
 import { MonoBehaviour, Destroy } from '../engine/scene.js';
 import { Time, WaitForSeconds, WaitWhile } from '../engine/core.js';
 import { registerComponent, registerSO, ScriptableObject, ComponentRegistry, getRuntimeSO } from '../engine/instantiate.js';
@@ -7,6 +7,8 @@ import { Game, RevivalState, ReviveQualification } from '../game/state.js';
 import { Color } from '../ugui/graphic.js';
 import { csFormat, localize } from './common.js';
 import { AudioSampleID, CurrencyService, CurrencyType, endlessHighScores, WorldManager } from './services.js';
+import { Ads, AdResult } from '../ads.js';
+import { Analytics } from '../analytics/index.js';
 
 export const PaymentOption = { NotAvailable: 0, Free: 1, RewardedVideo: 2, IAP: 3, Currency: 4 };
 export const PaymentResponse = { Failure: 0, Cancelled: 1, Success: 2, NotAvailable: 3 };
@@ -71,8 +73,11 @@ export class RevivePaymentHandler extends ScriptableObject {
         cb?.(PaymentResponse.Success);
         break;
       case PaymentOption.RewardedVideo:
-        cb?.(PaymentResponse.Success);
-        this.rs.StatTracker.AddRvRevive();
+        // AdResult = PaymentResponse: NotAvailable opens the HUD's "No ads available" popup (UI_Revive)
+        Ads.rewarded('revive').then((r) => {
+          if (r === AdResult.Success) this.rs.StatTracker.AddRvRevive();
+          cb?.(r);
+        });
         break;
       case PaymentOption.Currency: {
         const c = currencyOf(payment.data);
@@ -87,8 +92,9 @@ export class RevivePaymentHandler extends ScriptableObject {
     return true;
   }
 
-  IsWaitingForAd() {
-    return false;
+  /** no rewarded video ready: UI_PaymentText shows the no-ad icon on the button */
+  IsWaitingForAd(cost) {
+    return cost?.pay === PaymentOption.RewardedVideo && !Ads.available;
   }
 }
 registerSO(RevivePaymentHandler, 'RevivePaymentHandler');
@@ -287,7 +293,9 @@ export class UI_Revive extends MonoBehaviour {
 
   UpdatePurchaseButtons() {
     const h = this.handler;
-    this.payAdButton.gameObject.SetActive(h.CanBePurchased(this.adPayDefinition));
+    const ad = h.CanBePurchased(this.adPayDefinition);
+    this.payAdButton.gameObject.SetActive(ad);
+    if (ad && this.adPayDefinition.pay === PaymentOption.RewardedVideo) Analytics.adOffer('revive');
     this.paymentTextVisualAd?.Setup(h, this.adPayDefinition);
     this.paymentHardTxt.text = String(this.hardPayDefinition.amount);
     const b = this.payHardButton;

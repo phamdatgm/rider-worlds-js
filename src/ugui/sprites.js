@@ -1,8 +1,7 @@
 // UI sprites packed by tools/export.py (write_ui_atlas): {$sprite, fid} / {$tex} refs -> Sprite objects.
 import * as THREE from 'three';
-import { assetUrl, getTexture, getWhiteTexture } from '../engine/assets.js';
-
-const loader = new THREE.TextureLoader();
+import { assetUrl, getTexture } from '../engine/assets.js';
+import { loadImage, loadJSON } from '../sdk/net.js';
 
 export class Sprite {
   constructor(key, info, page, pw, ph) {
@@ -68,17 +67,8 @@ export const UISprites = {
   ready: false,
 
   async load() {
-    // ui/: sprites referenced by the exported UI data; ui_extra/ (optional): sprites only named by meta data
-    const atlases = [];
-    for (const dir of ['ui', 'ui_extra']) {
-      try {
-        const r = await fetch(assetUrl(`${dir}/atlas.json`));
-        if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) continue;
-        atlases.push({ dir, atlas: await r.json() });
-      } catch {
-        // missing optional atlas
-      }
-    }
+    // ui/: sprites referenced by the exported UI data; ui_extra/: sprites only named by meta data
+    const atlases = await Promise.all(['ui', 'ui_extra'].map(async (dir) => ({ dir, atlas: await loadJSON(assetUrl(`${dir}/atlas.json`)) })));
     this.info = {};
     this.pageSize = [];
     const pageFiles = [];
@@ -92,22 +82,16 @@ export const UISprites = {
     }
     this.pages = await Promise.all(
       pageFiles.map(
-        (file) =>
-          new Promise((res) => {
-            loader.load(
-              assetUrl(file),
-              (tex) => {
-                tex.colorSpace = THREE.NoColorSpace;
-                tex.magFilter = THREE.LinearFilter;
-                tex.minFilter = THREE.LinearFilter;
-                tex.generateMipmaps = false;
-                tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-                res(tex);
-              },
-              undefined,
-              () => res(getWhiteTexture()),
-            );
-          }),
+        async (file) => {
+          const tex = new THREE.Texture(await loadImage(assetUrl(file)));
+          tex.colorSpace = THREE.NoColorSpace;
+          tex.magFilter = THREE.LinearFilter;
+          tex.minFilter = THREE.LinearFilter;
+          tex.generateMipmaps = false;
+          tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+          tex.needsUpdate = true;
+          return tex;
+        },
       ),
     );
     this.ready = true;

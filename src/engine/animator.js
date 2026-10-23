@@ -6,6 +6,7 @@ import { MonoBehaviour } from './scene.js';
 import { Time } from './core.js';
 import { registerComponent } from './instantiate.js';
 import { assetUrl } from './assets.js';
+import { fetchRetry } from '../sdk/net.js';
 import { MaterialPropertyBlock } from './render.js';
 
 const controllers = new Map();
@@ -14,8 +15,8 @@ export function loadController(id) {
   if (!controllers.has(id)) {
     controllers.set(
       id,
-      fetch(assetUrl(`anim/${id}.json`))
-        .then((r) => (r.ok ? r.json() : null))
+      fetchRetry(assetUrl(`anim/${id}.json`))
+        .then((r) => r.json())
         .catch(() => null),
     );
   }

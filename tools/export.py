@@ -6,7 +6,7 @@ Output (under public/assets):
   materials.json            every referenced material (shader name + properties)
   meshes.bin / meshes.json  every referenced mesh, converted to three.js space
   textures/<name>.png       referenced textures (+ textures.json with import settings / sprites)
-  audio/<name>.ogg          audio clips referenced by exported data
+  audio/<name>.ogg          audio clips referenced by exported data (+ audio/files.json, their file names)
   manifest.json             worlds, chunk collections, timed levels
 
 Coordinate convention: Unity is left-handed. Transforms and meshes are mirrored on Z
@@ -754,6 +754,8 @@ class Exporter:
         os.makedirs(d, exist_ok=True)
         for path in self.audio:
             shutil.copyfile(path, os.path.join(d, os.path.basename(path)))
+        # the file names with their extension: the kit's compress step turns .ogg into .mp3 here too
+        write_json(os.path.join(d, "files.json"), sorted(os.path.basename(p) for p in self.audio))
 
 
 def guess_unknown_script(d):

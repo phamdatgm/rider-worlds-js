@@ -5,10 +5,12 @@
 import { EventAction, Time, Coroutines } from '../engine/core.js';
 import { ScriptableObject, registerSO, getRuntimeSO } from '../engine/instantiate.js';
 import { Assets } from '../engine/assets.js';
+import { Analytics } from '../analytics/index.js';
 import { Save } from './save.js';
 
 export const TutorialState = { NotStarted: 0, Completed: 1, Skipped: 2, Started: 3 };
 export const FirstRunStep = { Inactive: 0, AwaitRunStart: 1, AwaitPlayerReady: 2, HoldToAccelerate: 3, AwaitJumpApex: 4, HoldToFlip: 5, LandSafely: 6, Done: 7 };
+const STEP_NAMES = Object.fromEntries(Object.entries(FirstRunStep).map(([k, v]) => [v, k]));
 
 const TUTORIALS_COLLECTION = 'MonoBehaviour/Tutorials';
 
@@ -242,8 +244,12 @@ export class FirstRunTutorial extends RiderBaseTutorial {
   }
 
   setStep(value) {
-    if (value !== FirstRunStep.AwaitRunStart && this.currentStep !== FirstRunStep.Inactive) this.OnStepCompleted();
+    if (value !== FirstRunStep.AwaitRunStart && this.currentStep !== FirstRunStep.Inactive) {
+      this.OnStepCompleted();
+      Analytics.tutorialStep(this.SaveName, this.currentStep, STEP_NAMES[this.currentStep], 'done');
+    }
     this.currentStep = value;
+    if (value !== FirstRunStep.Done) Analytics.tutorialStep(this.SaveName, value, STEP_NAMES[value], 'shown');
     if (value !== FirstRunStep.Done) {
       this.OnStepStarted();
       return;
@@ -378,6 +384,7 @@ export const Tutorials = {
       Save.setDirty();
     }
     if (this.activeTutorial === t && t.IsFinished) this.activeTutorial = null;
+    if (t.IsFinished) Analytics.tutorialStep(t.SaveName, 100, 'end', t.State === TutorialState.Skipped ? 'skipped' : 'done');
     this.onTutorialChanged.Raise(t);
   },
 
@@ -422,6 +429,7 @@ export const Tutorials = {
       } else if (t.CanStart()) {
         this.activeTutorial = t;
         t.Activate();
+        Analytics.tutorialStep(t.SaveName, 0, 'start', 'shown');
         this.remaining.splice(i, 1);
         return;
       }

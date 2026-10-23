@@ -1,0 +1,11 @@
+{
+  "id": "rider-worlds",
+  "gameCode": "g2610211044",
+  "name": "Rider Worlds",
+  "version": "26102303",
+  "entry": "game.js",
+  "orientation": "any",
+  "languages": ["en"],
+  "defaultLanguage": "en",
+  "leaderboardId": "leaderboard-highscore"
+}

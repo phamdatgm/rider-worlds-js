@@ -21,6 +21,8 @@ import { MainMenuManager } from './home.js';
 import { UIInput, localizeSingular, hexInts } from './rewards.js';
 import { rarityData, localizeRarity, RARITY_TABLE } from './garage.js';
 import { tutorialUtility } from './shop.js';
+import { Ads } from '../ads.js';
+import { Analytics } from '../analytics/index.js';
 import './rendertexture.js';
 
 // MMFeedbacks.PlayFeedbacksInReverse (the sequence and the direction-aware feedbacks run bottom to top)
@@ -284,6 +286,7 @@ export class UI_LootboxOpenAnimation extends MonoBehaviour {
       pressedLoseRv = true;
     });
     this.watchRvButton.onClick.AddListener(() => this.OnRvButtonPressed());
+    Analytics.adOffer('chest_extra');
     yield new WaitUntil(() => pressedLoseRv || this.watchedAd);
     yield* card.PlayRemove();
     this.showRvDropButtonsFeedbacks.PlayFeedbacksInReverse();
@@ -400,10 +403,8 @@ export class UI_LootboxOpenAnimation extends MonoBehaviour {
 
   OnRvButtonPressed() {
     if (!this.watchedAd && !this.adBusy) {
-      // rewarded video removed: granted at once
       this.adBusy = true;
-      this.watchedAd = true;
-      this.adBusy = false;
+      Ads.watch('chest_extra', () => (this.watchedAd = true), this).finally(() => (this.adBusy = false));
     }
   }
 }

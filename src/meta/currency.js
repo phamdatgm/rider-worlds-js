@@ -1,6 +1,7 @@
 // CW.Currency: soft (gems), hard (rubies), star (rank progress) and bonus letters.
 import { EventAction } from '../engine/core.js';
 import { Save } from './save.js';
+import { Analytics } from '../analytics/index.js';
 
 export const CurrencyType = { Soft: 0, Hard: 1, Bonus: 2, Star: 3 };
 const KEYS = ['soft', 'hard', 'bonus', 'star'];
@@ -26,6 +27,7 @@ class Currency {
     const prev = this.value;
     Save.data.currency[this.key] = prev + n;
     Save.setDirty();
+    Analytics.currency(this.type, n, source);
     this.onChange.Raise(this.value, prev, source);
   }
 
@@ -34,6 +36,7 @@ class Currency {
     const prev = this.value;
     Save.data.currency[this.key] = prev - n;
     Save.setDirty();
+    if (n) Analytics.currency(this.type, -n, source);
     this.onChange.Raise(this.value, prev, source);
     return true;
   }

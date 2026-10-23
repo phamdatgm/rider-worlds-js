@@ -17,6 +17,8 @@ import { localize, UI_OverlayBase } from './common.js';
 import { PlayerRankManager, SettingsContainer, UnlockTypeEnum, AudioSampleID } from './services.js';
 import { UIStatics } from './statics.js';
 import { rewardDefinition, rewardAsset, CurrencyHelper, SkippableMMFeedback, unlockExtraData, localizeSingular, locReplace, UIInput } from './rewards.js';
+import { Ads } from '../ads.js';
+import { Analytics } from '../analytics/index.js';
 import { MainMenuManager } from './home.js';
 
 /** rewards granted at a rank (rankRewardDictionary[rank]) as DirectedRewardDefinitions */
@@ -114,8 +116,13 @@ export class PlayerRankUpPopupUI extends MonoBehaviour {
     return Meta.data.rankTrack?.rvGemMultiplier ?? 2;
   }
 
-  // Ads SDK removed: the rewarded video is treated as watched successfully
+  /** the rewarded video of the rank-up rubies (src/ads.js) */
   RvPressed() {
+    if (this.rvWatched) return;
+    Ads.watch('rank_up_bonus', () => this.OnRvWatched(), this);
+  }
+
+  OnRvWatched() {
     this.rvWatched = true;
     this.rvContainer?.gameObject.SetActive(false);
     const base = this.baseRewardAmount;
@@ -154,6 +161,7 @@ export class PlayerRankUpPopupUI extends MonoBehaviour {
     for (const r of rankRewards(currentRank)) {
       if (r.rewardID === CurrencyHelper.GetRewardID(1)) {
         this.rvFeedback?.PlayFeedbacks();
+        if (!rv) Analytics.adOffer('rank_up_bonus');
         rv = true;
       }
     }
@@ -696,14 +704,21 @@ export class UI_ClaimBonusOverlay extends UI_OverlayBase {
     this.claimAmount = this.settings.onClaim;
     this.descriptionTxt?.SetText(this.claimAmount);
     this.rvTxt?.SetText(this.settings.rvMultiplier);
+    Analytics.adOffer('bonus_claim');
   }
 
   Start() {
     this.TryOpen();
   }
 
-  // Rewarded video removed: grant the reward immediately (success path)
+  /** the rewarded video of the xN bonus claim (src/ads.js) */
   OnRv() {
+    if (this.doubled) return;
+    Ads.watch('bonus_claim', () => this.OnRvWatched(), this);
+  }
+
+  OnRvWatched() {
+    this.doubled = true;
     this.claimAmount = this.settings.rvMultiplier * this.settings.onClaim;
     if (this.currencyImg) this.currencyImg.sprite = this.moreGemsIcon;
     this.descriptionTxt?.SetText(this.claimAmount);
@@ -719,6 +734,7 @@ export class UI_ClaimBonusOverlay extends UI_OverlayBase {
     Bonus.save.lastClaimed = Date.now();
     Currencies.Bonus.Spend(Currencies.Bonus.value, 'Bonus');
     Currencies.Soft.Gain(this.claimAmount, 'Bonus');
+    Analytics.featureAction('bonus', this.doubled ? 'claim_ad' : 'claim');
     Bonus.onChanged.Raise();
     const handler = MainMenuManager.Instance?.RewardHandler;
     if (handler) {

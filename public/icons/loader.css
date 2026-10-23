@@ -1,0 +1,32 @@
+/*
+ * Loading screen skin (docs/LOADING.md §1.1). This file of the kit is EMPTY: the kit look (GM Loader v1).
+ * config.json "loadingScreen": "kit" → keep this file as it is; "game" → the game's look, written here.
+ *
+ * loader.js reads icons/loader.css after its own CSS, so rules here win. Only how the screen looks: images, logo,
+ * bar, positions, colours, font. The flow is the kit's (loader.js, unchanged): never hide the % bar, the text under
+ * it or the Reload button, never hide the publisher logo (.gmLoaderBrand), load nothing from outside the package.
+ * Images and fonts go in icons/ next to this file: url(splash.webp) is icons/splash.webp.
+ *
+ * The screen (loader.js):
+ *   #gmLoader                     whole screen; classes gmIsLoading (bar on), gmAlmost (99 %), gmFailed (Reload)
+ *     .gmLoaderBackdrop           blurred icons/loading.webp
+ *     .gmLoaderStage              centre column
+ *       img.gmLoaderThumb         icons/loading.webp
+ *       h1.gmLoaderTitle          game name
+ *       .gmLoaderProgress
+ *         .gmLoaderSpinner        until the first %
+ *         .gmLoaderBar > #gmLoaderFill   the bar
+ *         .gmLoaderInfo           "42%", "Almost there...", the error text
+ *         button.gmLoaderRetry    Reload
+ *     .gmLoaderBrand > img        publisher logo (icons/logo.webp, swapped by the build tool)
+ *     .gmLoaderVersion            version, bottom left
+ *
+ * Variables on #gmLoader: --gm-font, --gm-bg, --gm-track, --gm-white, --gm-muted; --gm-c1/2/3 (bar colours, "r,g,b").
+ * The bar takes the key art's colours; to keep your own, set --gm-tint: off on #gmLoader.
+ *
+ * Example:
+ *   #gmLoader { --gm-tint: off; --gm-bg: #10233f; --gm-c1: 255,196,0; --gm-c2: 255,140,0; --gm-c3: 255,90,0; }
+ *   .gmLoaderBackdrop { background-image: url(splash-bg.webp) !important; filter: none; transform: none; }
+ *   .gmLoaderThumb { display: none; }
+ *   .gmLoaderStage { justify-content: flex-end; padding-bottom: 12vh; }
+ */

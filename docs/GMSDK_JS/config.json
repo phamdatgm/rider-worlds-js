@@ -5,7 +5,7 @@
   "languages": ["en"],
   "defaultLanguage": "en",
   "leaderboardId": "leaderboard-highscore",
-  "compress": { "images": "lossless", "audio": "normal", "keep": [] },
+  "compress": { "images": "lossless", "audio": "normal", "keep": ["assets/leaderboard/**"] },
   "loadingScreen": "kit",
   "gdKey": null,
   "brief": null,

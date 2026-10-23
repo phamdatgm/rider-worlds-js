@@ -7,7 +7,8 @@ import { applySettings } from '../game/settings.js';
 import { DeathReason, EndState, RunMode } from '../game/state.js';
 import { AudioSampleID, MusicManager } from './services.js';
 import { getSceneSwitcher } from './scenes.js';
-import { NOTICE, APP_VERSION, noticeOk, halt } from '../notice.js';
+import { footerText } from '../portal.js';
+import { Analytics } from '../analytics/index.js';
 
 /** GlobalSavedSettings */
 export const GlobalSavedSettings = {
@@ -24,6 +25,7 @@ export const GlobalSavedSettings = {
     Save.data.settings[k] = !Save.data.settings[k];
     Save.save();
     applySettings(Save.data.settings);
+    Analytics.settingChange(k, Save.data.settings[k]);
   },
   ToggleAudio() {
     this.toggle('music');
@@ -127,13 +129,10 @@ export class UI_PauseMenu extends MonoBehaviour {
     this.resumeBtn?.onClick.AddListener(() => this.OnPressedResume());
     for (const b of this.closeButtons || []) b?.onClick.AddListener(() => this.OnPressedResume());
     this.UpdateVisualState();
-    // SDK footer (JS_SDK_2.0/docs/BUILD_RULES.md section 1): the Menu's Settings popup has the "cpr" text of the
-    // Unity build; it shows src/config.mjs appVersion + notice, the notice locked by its hash
+    // the Menu's Settings popup has the "cpr" text of the Unity build: V<version> of game.json and the copyright line
+    // of the kit's sdk/copyright.js (docs/GMSDK_JS/docs/INTEGRATION.md §9)
     const cpr = this.transform.Find('PausePopup/cpr')?.gameObject.GetComponent('TextMeshProUGUI');
-    if (cpr) {
-      cpr.text = `${APP_VERSION}\n${NOTICE}`;
-      if (!noticeOk(cpr.text.split('\n')[1])) halt();
-    }
+    if (cpr) cpr.text = footerText();
   }
 
   OnDestroy() {

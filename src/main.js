@@ -3,7 +3,7 @@
 import './style.css';
 import * as THREE from 'three';
 import { Time, Coroutines } from './engine/core.js';
-import { loadCore, Assets, loadPrefabDeep } from './engine/assets.js';
+import { loadCore, Assets, loadPrefabDeep, AssetEvents } from './engine/assets.js';
 import { registerComponent, getRuntimeSO, Instantiate } from './engine/instantiate.js';
 import { Physics2D, Rigidbody2D, BoxCollider2D, CircleCollider2D, PolygonCollider2D, EdgeCollider2D, CapsuleCollider2D, WheelJoint2D } from './engine/physics2d.js';
 import { Render, MeshFilter, MeshRenderer, SkinnedMeshRenderer, SpriteRenderer, Light } from './engine/render.js';
@@ -28,38 +28,29 @@ import { UISprites, initUGUI } from './ugui/index.js';
 import './uiscripts/index.js';
 import { SceneHost, TransitionScreen, getSceneSwitcher, EndlessModeID, TimedLevelModeID } from './uiscripts/scenes.js';
 import { UIState, WorldManager } from './uiscripts/services.js';
-import { noticeOk, halt } from './notice.js';
-import { showLoading, hideLoading } from './loading.js';
-import { initI18n, t } from './sdk/i18n.js';
-import { startPortal, trackRuns, menuReady } from './portal.js';
+import { loadSDK } from './sdk/gmsdkjs-shim.js';
+import { createLoader } from './sdk/loading/loading.js';
+import { initI18n } from './sdk/i18n.js';
+import { loadJSON } from './sdk/net.js';
+import { convertLegacySave } from './legacy-save.js';
+import { initAds, Ads } from './ads.js';
+import { Analytics } from './analytics/index.js';
+import { startPortal, trackRuns, menuReady, leaderboardOpen } from './portal.js';
+import { MainMenuManager } from './uiscripts/home.js';
+import { TimedLevelModeController, TimedLevelModeDifficulty } from './uiscripts/services.js';
+import { PlayerRank } from './meta/rank.js';
+import { Shop } from './meta/shop.js';
 
 for (const cls of [Rigidbody2D, BoxCollider2D, CircleCollider2D, PolygonCollider2D, EdgeCollider2D, CapsuleCollider2D, WheelJoint2D, MeshFilter, MeshRenderer, SkinnedMeshRenderer, SpriteRenderer, Light, ParticleSystem, ParticleSystemRenderer, MMAutoDestroyParticleSystem]) {
   registerComponent(cls, cls.typeName);
 }
 
-// ---------------------------------------------------------------- loading screen (GM Loader in index.html, until the first scene is up)
+// ---------------------------------------------------------------- loading screen (loader.js of the kit, until the first scene is up)
 
-const boot = {
-  progress: showLoading,
-  /** the kit's load error: the English fallback covers a failed Language/en.json */
-  error() {
-    const el = document.getElementById('gmLoader');
-    const text = document.getElementById('load-text');
-    if (!el || !text) return;
-    el.hidden = false;
-    el.classList.add('gmIsLoading');
-    el.classList.remove('gmAlmost');
-    text.textContent = '';
-    const msg = document.createElement('div');
-    const lf = t('load_failed');
-    msg.textContent = lf === 'load_failed' ? "Couldn't load the game. Please check your internet connection and try again." : lf;
-    const btn = document.createElement('button');
-    btn.textContent = t('try_again') === 'try_again' ? 'Try again' : t('try_again');
-    btn.onclick = () => location.reload();
-    text.append(msg, btn);
-  },
-  hide: hideLoading,
-};
+/** docs/GMSDK_JS/config.json gameCode: the save key when the page has none (the page's GMSDKJS_OPTIONS wins) */
+const GAME_CODE = 'g2610211044';
+
+const loader = createLoader();
 
 // ---------------------------------------------------------------- scene host
 
@@ -71,7 +62,7 @@ SceneHost.activeMode = () => (Game.manager ? Game.manager.RunState.Mode : null);
 SceneHost.leaveGame = () => leaveGame();
 SceneHost.loadGame = async (mode) => {
   const run = (async () => {
-    await prepareMode(mode, (p) => boot.progress(0.8 + p * 0.2));
+    await prepareMode(mode, (p) => loader.progress(0.8 + p * 0.2));
     Time.timeScale = 1;
     startMode(mode);
     // CameraRig.OnSceneLoaded: the Menu Cam has priority while the menu scene is up
@@ -93,30 +84,42 @@ Game.onEndlessOver = (mode) => {
   UIState.lastRunNewBest = !!mode?.newBest;
   UIState.lastRunWorld = mode?.world ?? -1;
   const ss = getSceneSwitcher();
-  if (Tutorials.FirstRun.State === TutorialState.Started) ss.ReloadGameScene();
+  const tutorial = Tutorials.FirstRun.State === TutorialState.Started;
+  Ads.runEnded(tutorial);
+  if (tutorial) ss.ReloadGameScene();
   else ss.ReturnToMainMenu();
 };
-Game.onLevelOver = () => getSceneSwitcher().ReturnToMainMenu();
+Game.onLevelOver = () => {
+  Ads.runEnded(false);
+  getSceneSwitcher().ReturnToMainMenu();
+};
 
-async function main() {
-  // docs/BUILD_RULES.md section 1: the copyright line is locked by its hash
-  if (!noticeOk()) {
-    halt();
-    return;
-  }
-  // GMGameSDK + analytics + leaderboard sign-in run while the assets load
-  const sdkReady = startPortal();
-  const canvas = document.getElementById('game');
-  try {
-    await initI18n();
-    await loadCore((p) => boot.progress(p * 0.5));
-    await UISprites.load();
-  } catch (e) {
-    console.error(`Failed to load assets: ${e.message}. Run "npm run export-assets" first.`);
-    boot.error();
-    throw e;
-  }
-  boot.progress(0.6);
+/** the platform template's #game element holds the canvas (the dev page has the same) */
+function gameCanvas() {
+  const host = document.getElementById('game') ?? document.body.appendChild(Object.assign(document.createElement('div'), { id: 'game' }));
+  return host.querySelector('canvas') ?? host.appendChild(document.createElement('canvas'));
+}
+
+/** docs/GMSDK_JS/docs/INTEGRATION.md §2, in this order */
+async function boot() {
+  // 1. the SDK (loader.js loads gmsdkjs.js next to this file), then the pause around every ad
+  const sdk = await loadSDK({ gameCode: GAME_CODE });
+  initAds(sdk);
+  // 2. saves of older builds, before anything reads sdk.storage (src/legacy-save.js)
+  const converted = convertLegacySave(sdk.storage);
+  // 3. the manifest and English: failing, the loading screen offers Reload
+  const manifest = await loadJSON('game.json');
+  await initI18n({ languages: manifest.languages, defaultLanguage: manifest.defaultLanguage, storage: sdk.storage });
+  loader.setTitle(manifest.name);
+  Analytics.init(sdk, { convertedSave: converted });
+  AssetEvents.loadError = (file) => Analytics.loadError(file);
+  startPortal(sdk, manifest);
+  const sdkReady = sdk.ready();
+  // 4. the game's assets: the bar's last 70 %
+  const canvas = gameCanvas();
+  await loadCore((p) => loader.progress(p * 0.5));
+  await UISprites.load();
+  loader.progress(0.6);
   Physics2D.init(Assets.manifest.physics2d);
   Time.fixedDeltaTime = Assets.manifest.physics2d.fixedTimestep || 0.011;
   Render.init(canvas);
@@ -126,6 +129,21 @@ async function main() {
   const runState = getRuntimeSO('MonoBehaviour/Run State');
   await initMeta(runState);
   trackRuns(runState);
+  Analytics.attach({
+    runState,
+    menuPage: () => MainMenuManager.Instance?.currentMenu?.index ?? -1,
+    menuUp: () => !!SceneHost.menuRoot && !!MainMenuManager.Instance,
+    leaderboardOpen,
+    // docs/GMSDK_JS/analytics.json features: what opens them (the menu pages: MenuSwitcher.unlockRank)
+    unlocks: {
+      garage: () => PlayerRank.CurrentRank >= 1,
+      shop: () => PlayerRank.CurrentRank >= 2,
+      levels: () => TimedLevelModeController.Instance.IsUnlocked(TimedLevelModeDifficulty.Easy),
+      bonus: () => PlayerRank.IsBonusUnlocked,
+      worlds: () => PlayerRank.IsWorldNavigationUnlocked,
+      gifts: () => Shop.IsGiftUnlocked,
+    },
+  });
   applySettings(Save.data.settings);
   LoopHooks.beforeUpdate.push(() => Tutorials.Update());
 
@@ -162,13 +180,20 @@ async function main() {
   };
   // SceneSwitcher.LoadAppStart (Menu + MainGame, or straight into the first-run tutorial)
   Coroutines.start(getSceneSwitcher().LoadAppStart(), null);
-  const hideBoot = () => {
-    if (Game.manager && !getSceneSwitcher().menuStateSO.isSceneTransitioning) {
-      boot.hide();
-      menuReady(sdkReady);
-    } else requestAnimationFrame(hideBoot);
-  };
-  hideBoot();
+  // 5. the licence answer and the ad config (5 s at most) by the time the menu is up, then 6. the menu, 7. the preroll
+  await sdkReady;
+  await new Promise((resolve) => {
+    const menuUp = () => (Game.manager && !getSceneSwitcher().menuStateSO.isSceneTransitioning ? resolve() : requestAnimationFrame(menuUp));
+    menuUp();
+  });
+  loader.hide();
+  menuReady();
+  Analytics.sessionStart();
+  await sdk.preroll();
 }
 
-main();
+boot().catch((e) => {
+  console.error('boot failed:', e);
+  Analytics.loadError(e?.message ?? 'boot');
+  loader.error();
+});

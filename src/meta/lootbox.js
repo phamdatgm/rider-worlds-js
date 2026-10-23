@@ -4,6 +4,7 @@ import { Save } from './save.js';
 import { Meta } from './data.js';
 import { CardService } from './cards.js';
 import { Rewards } from './rewards.js';
+import { Analytics } from '../analytics/index.js';
 
 export const ClaimSelection = { Normal: 2, Premium: 0x80, Ads: 0x2000 };
 
@@ -199,6 +200,7 @@ export const LootboxService = {
     if (i >= 0) st.inbox.splice(i, 1);
     st.opened[r.type] = (st.opened[r.type] || 0) + 1;
     st.openingResult = null;
+    Analytics.featureAction('chests', withAds ? 'open_ad' : 'open', r.box);
     for (const d of [...r.regular, ...(withAds ? r.ads : [])]) CardService.get(d.id)?.Add(d.count, r.origin);
     Save.setDirty();
     this.onClaimed.Raise(r);

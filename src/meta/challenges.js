@@ -4,6 +4,7 @@ import { Save } from './save.js';
 import { Meta } from './data.js';
 import { Currencies } from './currency.js';
 import { grantReward } from './rewards.js';
+import { Analytics } from '../analytics/index.js';
 import { WorldManager } from './worlds.js';
 
 export const ChallengeState = { Uninitialized: 0, Inactive: 1, Active: 2, Completed: 3, Claimed: 4, Done: 10 };
@@ -341,6 +342,7 @@ export const ChallengeManager = {
   Claim(ch) {
     if (!this.slots.includes(ch) || !ch.IsCompleted) return null;
     const res = ch.ClaimRewards();
+    Analytics.featureAction('challenges', 'claim', ch.def?.id ?? ch.id ?? null);
     const st = cstate();
     if (WorldManager.CurrentWorldIndex === 0) st.w1Claimed++;
     const prev = st.maxSlotUnlocked;
@@ -390,6 +392,7 @@ export const ChallengeManager = {
     if (reason === ResetReason.Invalid) return false;
     const cost = reason === ResetReason.TimerSkip ? this.settings.skipTimerCost : this.settings.skipChallengeCost;
     if (!free && !Currencies.Hard.Spend(cost, 'Challenges')) return false;
+    Analytics.featureAction('challenges', `${reason === ResetReason.TimerSkip ? 'skip_timer' : 'skip_challenge'}${free ? '_ad' : ''}`);
     if (reason === ResetReason.TimerSkip) ch.ensure().lockout = 0;
     else ch.Complete();
     Save.setDirty();

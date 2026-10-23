@@ -13,6 +13,8 @@ import { ev, localize, ParticleStarter } from './common.js';
 import { AudioSampleID, ChallengeManager, WorldManager, SettingsContainer, CurrencyType } from './services.js';
 import { TransitionScreen } from './scenes.js';
 import { MainMenuManager } from './home.js';
+import { Ads } from '../ads.js';
+import { Analytics } from '../analytics/index.js';
 import { UIStatics } from './statics.js';
 
 export const ChallengeType = { Timed: 0, World: 1 };
@@ -810,6 +812,7 @@ export class UI_ChallengeResetPopup extends MonoBehaviour {
         if (this.headerTxt) this.headerTxt.text = localize(this.rerollHeaderText);
     }
     if (this.currencyBtnTxt) this.currencyBtnTxt.text = String(this.cost);
+    Analytics.adOffer('challenge_skip');
   }
 
   Update() {
@@ -829,8 +832,14 @@ export class UI_ChallengeResetPopup extends MonoBehaviour {
   }
 
   OnBuyAd() {
-    ChallengeManager.Instance.RVChallengeReset(this.challenge);
-    this.OnPressedQuit();
+    Ads.watch(
+      'challenge_skip',
+      () => {
+        ChallengeManager.Instance.RVChallengeReset(this.challenge);
+        this.OnPressedQuit();
+      },
+      this,
+    );
   }
 
   OnBuyCurrency() {
