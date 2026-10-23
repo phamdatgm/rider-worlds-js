@@ -14,7 +14,8 @@
 //   3. loader.js: kiểm dòng bản quyền, đặt __gmnk, nạp framework.js (thử lại 3 lần, hỏng thì báo trên màn loading)
 //      — file DUY NHẤT làm rối mạnh (javascript-obfuscator)
 //   4. index.html trỏ sang loader.js, đóng dấu version / id / title
-//   5. audio nén lại (mp3 giữ mp3 — Safari/iOS; hoặc opus); nhạc = tên mà code gọi qua config.audio.musicPattern
+//   5. audio nén lại (mp3 giữ mp3 — Safari/iOS; hoặc opus; hiệu ứng có thể wav qua effectFormat); nhạc = config.audio.music
+//      hoặc tên mà code gọi qua config.audio.musicPattern; khác đuôi nguồn thì file đổi tên theo định dạng
 //   6. PNG -> WebP theo config.webp; mọi file text ship ra đổi .png -> .webp theo
 //   7. vỏ portal (mẫu azgames_v1): <base>, gm-sdk.js + gm-iframe.js (v3), GMSOFT_SIGNED, gmsdkv2.js (portalGid), Firebase, global ở cuối body
 //   0b. cổng chuẩn docs/JSGMSDK.md: AZ_SETTINGS (gameCode/language/gameId/portalGid), gameCode, Language/*.json, Icons/, localStorage chỉ ở sdk/storage.js, bản quyền
@@ -188,7 +189,7 @@ mkdirSync(buildsRoot, { recursive: true });
   row('Copyright', `${pickRt('notice')} (in ${copyrightAt})`, `${RUNTIME_CFG}: notice (+ EXPECT, notice-hash.mjs)`);
   row('Firebase', `${ident.firebase ?? 'none'} (shared)`, 'config.mjs: firebase');
   row('SDK host', config.sdkHost, 'config.mjs: sdkHost');
-  row('Audio', `${config.audio?.format ?? 'mp3'}`, 'config.mjs: audio.format');
+  row('Audio', `music ${config.audio?.format ?? 'mp3'}, effects ${config.audio?.effectFormat ?? config.audio?.format ?? 'mp3'}`, 'config.mjs: audio.format / effectFormat');
   row('Max JS files', config.maxJsFiles ?? 2, 'config.mjs: maxJsFiles');
   console.log('');
   const changed = prev && ['gameId', 'portalGid', 'gameCode'].filter((k) => prev[k] !== undefined && prev[k] !== ident[k]);
@@ -338,29 +339,43 @@ for (const f of CSS_FILES) {
 if (config.audio?.dir) {
   const dir = join(dist, config.audio.dir);
   const pattern = new RegExp(config.audio.musicPattern ?? 'playMusic\\(\\s*[\'"`]([\\w-]+)[\'"`]', 'g');
-  const music = new Set([...sourceText.matchAll(pattern)].map((m) => m[1]));
+  // config.audio.music: tên nhạc liệt kê sẵn (vd đọc từ dữ liệu game) thay cho musicPattern
+  const music = new Set(config.audio.music ?? [...sourceText.matchAll(pattern)].map((m) => m[1]));
   if (!music.size && existsSync(dir)) console.warn('audio: no music name found by config.audio.musicPattern — every file treated as an effect');
+  // đuôi file theo định dạng: nguồn khác đuôi thì file ĐỔI TÊN, game phải gọi đúng đuôi mới
+  const EXT = { mp3: '.mp3', opus: '.ogg', wav: '.wav' };
+  // effectFormat: 'keep' = hiệu ứng ship nguyên file nguồn, không encode lại
+  const musicFmt = config.audio.format ?? 'mp3', effectFmt = config.audio.effectFormat ?? musicFmt;
+  if (!EXT[musicFmt]) throw new Error(`config.audio: unknown format '${musicFmt}' (mp3 | opus | wav)`);
+  if (!EXT[effectFmt] && effectFmt !== 'keep') throw new Error(`config.audio: unknown effectFormat '${effectFmt}' (mp3 | opus | wav | keep)`);
+  const files = (existsSync(dir) ? readdirSync(dir).filter((f) => /\.(mp3|ogg|wav)$/i.test(f)) : [])
+    .filter((f) => effectFmt !== 'keep' || music.has(f.replace(/\.\w+$/, '')));
+  for (const name of music) if (existsSync(dir) && !files.some((f) => f.replace(/\.\w+$/, '') === name)) throw new Error(`audio: music '${name}' has no file in ${config.audio.dir}`);
+  const renames = files.some((f) => extname(f).toLowerCase() !== EXT[music.has(f.replace(/\.\w+$/, '')) ? musicFmt : effectFmt]);
   let ffmpeg = null;
   try { ffmpeg = (await import('ffmpeg-static')).default; } catch { /* tuỳ chọn */ }
+  if (!ffmpeg && renames) throw new Error('audio: ffmpeg-static missing (npm i -D ffmpeg-static) and the formats in config.audio change file extensions the game will request');
   if (!ffmpeg) console.warn('audio: ffmpeg-static missing (npm i -D ffmpeg-static) — shipping audio as-is');
-  else if (existsSync(dir)) {
-    const fmt = config.audio.format ?? 'mp3';
+  else {
     let before = 0, after = 0, n = 0, kept = 0;
-    for (const f of readdirSync(dir)) {
-      if (!/\.(mp3|ogg|wav)$/i.test(f)) continue;
+    const used = new Set();
+    for (const f of files) {
       const path = join(dir, f), name = f.replace(/\.\w+$/, ''), isMusic = music.has(name);
+      const fmt = isMusic ? musicFmt : effectFmt;
       const kbps = isMusic ? config.audio.musicKbps ?? 96 : config.audio.effectKbps ?? 64;
       const ch = isMusic && config.audio.musicStereo !== false ? '2' : '1';
-      const out = fmt === 'opus' ? path.replace(/\.\w+$/, '.ogg') : path, tmp = `${out}.tmp${fmt === 'opus' ? '.ogg' : '.mp3'}`;
-      execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', path,
-        '-c:a', fmt === 'opus' ? 'libopus' : 'libmp3lame', '-b:a', `${kbps}k`, '-ac', ch, '-map_metadata', '-1', tmp]);
+      const out = path.replace(/\.\w+$/, EXT[fmt]), tmp = `${out}.tmp${EXT[fmt]}`;
+      const codec = fmt === 'wav' ? ['-c:a', 'pcm_s16le'] : ['-c:a', fmt === 'opus' ? 'libopus' : 'libmp3lame', '-b:a', `${kbps}k`];
+      execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', path, ...codec, '-ac', ch, '-map_metadata', '-1', tmp]);
       const a = statSync(path).size, b = statSync(tmp).size;
-      before += a; n++;
-      if (fmt === 'opus' || b < a) { if (out !== path) rmSync(path); rmSync(out, { force: true }); cpSync(tmp, out); after += b; } else { after += a; kept++; }
+      before += a; n++; used.add(fmt);
+      // giữ bản gốc chỉ khi cùng đuôi và nhỏ hơn (mp3 -> mp3)
+      if (out !== path || fmt !== 'mp3' || b < a) { if (out !== path) rmSync(path); rmSync(out, { force: true }); cpSync(tmp, out); after += b; } else { after += a; kept++; }
       rmSync(tmp);
     }
-    console.log(`audio: ${n} file(s) ${fmt}, ${kept} kept (already smaller) — ${(before / 1048576).toFixed(2)} MB -> ${(after / 1048576).toFixed(2)} MB`);
-    if (fmt === 'opus') console.warn('audio: opus renames files to .ogg — the game must request .ogg (and Safari cannot play opus)');
+    console.log(`audio: ${n} file(s) (music ${musicFmt}, effects ${effectFmt}), ${kept} kept (already smaller) — ${(before / 1048576).toFixed(2)} MB -> ${(after / 1048576).toFixed(2)} MB`);
+    if (renames) console.warn(`audio: files renamed to ${[...used].map((x) => EXT[x]).join(' / ')} — the game must request those extensions`);
+    if (used.has('opus')) console.warn('audio: Safari cannot play opus');
   }
 }
 

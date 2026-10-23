@@ -26,6 +26,8 @@
  *
  */
 
+import { readFileSync } from 'node:fs';
+
 export const config = {
   /**
    * **XÁC NHẬN, không phải mặc định.** Phải bằng đúng `gameId` bên dưới.
@@ -141,8 +143,7 @@ export const config = {
   trace: [],
   keep: [],
 
-  /** File text khác có nhắc tên ảnh .png (manifest, atlas, level data…) — bước WebP đổi tên theo. */
-  // webp.rewrite: ['assets/manifest.json'],
+  /** File text khác có nhắc tên ảnh .png (manifest, atlas, level data…) — bước WebP đổi tên theo: webp.rewrite. */
 
   /**
    * Kiểm bản build (tools/check_build.py): KHÔNG còn ghi chú dev, KHÔNG có tiếng Việt ngoài các file liệt kê
@@ -154,15 +155,26 @@ export const config = {
 
   audio: {
     /** Thư mục audio trong bản build. null = bỏ bước audio. */
-    // Rider Worlds ships the .ogg exported from Unity; the mp3 re-encode would write MP3 data under .ogg names
-    dir: null,
+    // Rider Worlds: the exporter writes .ogg (Vorbis, which older Safari cannot decode). The build turns music into
+    // .mp3 and ships the effects' .ogg as they are; src/engine/assets.js requests .mp3 for music in the build
+    dir: 'assets/audio',
     /**
      * Nhạc = tên mà CODE gọi (regex, nhóm 1 = tên file không đuôi), không đoán theo kích thước / định dạng.
      * Mặc định bắt `playMusic('music_home')`.
      */
     musicPattern: String.raw`playMusic\(\s*['"]([\w-]+)['"]`,
+    /** Hoặc liệt kê thẳng tên nhạc (không đuôi); có thì bỏ qua musicPattern. */
+    // Rider Worlds: the music lists in the exported manifest, the same ones the runtime reads
+    music: Object.values(JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url), 'utf8')).music)
+      .filter(Array.isArray).flat().map((id) => id.split('/').pop()),
     /** 'mp3' giữ MP3 (Safari/iOS đọc được, chỉ thay khi nén nhỏ hơn) | 'opus' (.ogg, nhỏ hơn, KHÔNG chạy Safari) */
     format: 'mp3',
+    /**
+     * Định dạng hiệu ứng (mặc định = format). 'wav': PCM 16-bit, không trễ đầu file như mp3, lặp liền mạch.
+     * 'keep': ship nguyên file nguồn.
+     */
+    // Rider Worlds: WAV took the effects from 0.73 MB to 8.2 MB, all of it loaded at start -> the .ogg stay
+    effectFormat: 'keep',
     musicKbps: 96,
     musicStereo: true,
     effectKbps: 64,
@@ -177,9 +189,10 @@ export const config = {
    */
   webp: {
     /** Thư mục trong bản build chứa ảnh. */
-    // Rider Worlds: PNG names live in hundreds of exported JSON files (prefabs / materials / manifest) and feed
-    // three.js textures; the UI is already packed in WebP atlases -> the PNG -> WebP step is skipped
-    dir: null,
+    // Rider Worlds: textures/ (three.js textures, TMP SDF atlases) and leaderboard/ (DOM icons, flags). Only
+    // textures.json names a texture file, the bundle names the leaderboard ones. Lossless everywhere: SDF atlases and
+    // masks are sampled, FX keep colour under alpha 0 (exact). 21.5 MB -> 9.1 MB.
+    dir: 'assets',
     lossyDirs: [],
     lossyFiles: [],
     quality: 90,
@@ -187,6 +200,6 @@ export const config = {
     nearLosslessSkip: [],
     exact: true,
     perFile: {},
-    rewrite: [],
+    rewrite: ['assets/textures.json'],
   },
 };

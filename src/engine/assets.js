@@ -243,10 +243,22 @@ export function getTexture(id) {
 
 // ---------------------------------------------------------------- audio
 
+/* global __GM_BUILD__ */
+const BUILD = typeof __GM_BUILD__ !== 'undefined' && __GM_BUILD__;
+
+/**
+ * The dev server serves the .ogg the exporter wrote. The build re-encodes the music to .mp3 (config.audio in
+ * JS_SDK_2.0/config.mjs, which reads the same manifest.music lists) and ships the effects' .ogg as they are.
+ */
+function audioFile(id) {
+  const name = id.split('/').pop();
+  const isMusic = BUILD && Object.values(Assets.manifest?.music ?? {}).some((v) => Array.isArray(v) && v.includes(id));
+  return `${name}.${isMusic ? 'mp3' : 'ogg'}`;
+}
+
 export async function loadAudioBuffer(ctx, id) {
   if (Assets.audioBuffers.has(id)) return Assets.audioBuffers.get(id);
-  const name = id.split('/').pop();
-  const p = fetch(assetUrl(`audio/${name}.ogg`))
+  const p = fetch(assetUrl(`audio/${audioFile(id)}`))
     .then((r) => r.arrayBuffer())
     .then((b) => ctx.decodeAudioData(b))
     .catch((e) => {
