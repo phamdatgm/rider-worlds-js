@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Game (dev)</title>
+  <style>html, body { margin: 0; height: 100%; background: #000; overflow: hidden; } #game { position: fixed; inset: 0; }</style>
+  <script>
+    // DEV PAGE ONLY. It stands in for the platform template the build tool adds later, so it is NOT part of
+    // the export package (docs/EXPORT.md). Fill the three <!--…--> values with what the owner gives you
+    // (docs/TESTING.md §1); never guess them.
+    window.GMSDKJS_OPTIONS = {
+      platform: 'dev',
+      sdkType: 'gm',
+      gameId: '<!--GAME_ID-->',        // portal slug, e.g. wheelie-spooky
+      gameCode: '<!--GAME_CODE-->',    // g<number>, e.g. g131: the save key azgames.<gameCode>
+      version: '<!--GAME_VERSION-->',  // game.json version
+      language: '<!--LANGUAGE-->',     // default language of new players: a tag of game.json languages (docs/INTEGRATION.md §7)
+      api: null,                       // 'https://api.1games.io/sdk/gmadsv2' to try the real licence API
+      portal: 'https://1games.io/',
+      gma: null,                       // { host: 'https://gm.azgame.io', suffix: '-az' }: GMA events, and the leaderboard sign-in (docs/LEADERBOARD.md §5)
+      brand: { name: 'gamesforfree.io', logo: 'https://games.1games.io/lib/brand/gamesforfree.io.png', url: 'https://gamesforfree.io/' },
+      copyright: { domain: 'azgames.io', name: 'AZ Games' }, // copyright owner: sdk.brand.trademark() shows it (1: domain, 2: name)
+      ads: { enable_preroll: 'yes', time_show_inter: 30, time_show_reward: 0 },
+      adsTest: true,                   // Google test ads (h5), no ads setup needed
+      debug: true                      // every SDK step in the console
+    };
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+  <!-- loader.js (public/loader.js) first, as on every platform page: the loading screen, then gmsdkjs.js and the
+       game side by side (docs/LOADING.md). The entry is src/main.js while developing; game.js in the export package. -->
+  <script src="loader.js" data-entry="src/main.js" data-module></script>
+</body>
+</html>

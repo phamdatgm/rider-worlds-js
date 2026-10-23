@@ -1,0 +1,13 @@
+{
+  "id": "rider-worlds",
+  "gameCode": "g2610211044",
+  "name": "Rider Worlds",
+  "languages": ["en"],
+  "defaultLanguage": "en",
+  "leaderboardId": "leaderboard-highscore",
+  "compress": { "images": "lossless", "audio": "normal", "keep": [] },
+  "loadingScreen": "kit",
+  "gdKey": null,
+  "brief": null,
+  "notes": []
+}

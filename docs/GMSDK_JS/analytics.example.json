@@ -1,0 +1,47 @@
+{
+  "$comment": "The format of analytics.json, the event dictionary the AI generates after wiring the tracking (docs/ANALYTICS.md §6). Nobody writes it by hand. Ids are lowercase snake_case and never renamed once sent; null = the game has no such thing.",
+  "levels": {
+    "kind": "levels",
+    "progress": "progress_pct",
+    "list": [
+      { "id": "w1_l1", "index": 1, "name": "World 1 - Level 1" },
+      { "id": "w1_l2", "index": 2, "name": "World 1 - Level 2" }
+    ]
+  },
+  "screens": ["loading", "menu", "level_select", "shop", "settings", "game", "pause", "result"],
+  "onboarding": ["menu_shown", "first_play", "first_input", "first_end", "second_play", "first_feature", "first_purchase"],
+  "tutorials": {
+    "controls": ["tap_to_jump", "hold_to_glide"]
+  },
+  "causes": {
+    "spike": "hit a spike",
+    "fall": "fell off the level",
+    "timeout": "ran out of time"
+  },
+  "currencies": ["coins"],
+  "sources": ["level", "mission", "daily", "ad_reward"],
+  "sinks": ["skin", "upgrade"],
+  "item_types": {
+    "skin": "skin_<name>, e.g. skin_red",
+    "booster": ["booster_shield", "booster_magnet"]
+  },
+  "features": [
+    { "id": "shop", "unlock": "start" },
+    { "id": "daily", "unlock": "after the first level" },
+    { "id": "missions", "unlock": "level 3" }
+  ],
+  "ad_placements": {
+    "revive": "continue after losing",
+    "double_coins": "x2 coins on the result screen",
+    "run_end": "interstitial between runs"
+  },
+  "settings": ["music", "sfx", "language"],
+  "custom": [
+    {
+      "name": "mission_complete",
+      "when": "a mission is completed",
+      "params": { "mission": "mission id", "coins": "reward" }
+    }
+  ],
+  "kpis": ["onboarding_complete", "level_1_win", "depth", "feature_use"]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "duet",
+  "gameCode": "g0",
+  "name": "GMSDK Example",
+  "version": "26101701",
+  "entry": "game.js",
+  "orientation": "any",
+  "languages": ["en", "es"],
+  "defaultLanguage": "en",
+  "leaderboardId": "leaderboard-topscore"
+}

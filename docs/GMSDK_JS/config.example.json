@@ -1,0 +1,14 @@
+{
+  "$comment": "Copy next to this file as config.json (docs/GMSDK_JS/config.json) and fill it in (AI_INSTALL.md, step 0). Values come from the game owner, never guessed. Check it from the repo root: node docs/GMSDK_JS/tools/check-export.mjs",
+  "id": "<slug on the portal, e.g. wheelie-spooky>",
+  "gameCode": null,
+  "name": "<display name, e.g. Wheelie Spooky>",
+  "languages": ["en"],
+  "defaultLanguage": "en",
+  "leaderboardId": null,
+  "compress": { "images": "normal", "audio": "normal", "keep": [] },
+  "loadingScreen": null,
+  "gdKey": null,
+  "brief": null,
+  "notes": []
+}

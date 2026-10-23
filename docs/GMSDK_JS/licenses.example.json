@@ -1,0 +1,54 @@
+{
+  "$comment": "Where every asset of the game comes from and its licence (docs/ASSETS.md). Copy to licenses.json next to config.json. check-export: every file under roots must be in an entry.",
+  "roots": ["public/assets"],
+  "assets": [
+    {
+      "files": ["public/assets/sounds/menu.mp3"],
+      "type": "music",
+      "origin": "third-party",
+      "license": "CC0-1.0",
+      "source": "https://opengameart.org/node/159764",
+      "author": "iamoneabe",
+      "modified": true,
+      "proof": "public/assets/sounds/CREDITS.md"
+    },
+    {
+      "files": ["public/assets/sounds/click.mp3"],
+      "type": "sound",
+      "origin": "third-party",
+      "license": "CC-BY-4.0",
+      "source": "https://freesound.org/s/000000/",
+      "author": "someone",
+      "attribution": "\"Click\" by someone (freesound.org), CC BY 4.0",
+      "modified": false
+    },
+    {
+      "files": ["public/assets/fonts/*.otf"],
+      "type": "font",
+      "origin": "purchased",
+      "license": "commercial",
+      "source": "https://fonts.example.com/title-font",
+      "proof": "invoice 2026-001, Drive: Licences/fonts/title-font.pdf"
+    },
+    {
+      "files": ["public/assets/art/**"],
+      "type": "art",
+      "origin": "ai",
+      "license": "in-house",
+      "derivedFrom": "the game's own sprites (in-house)",
+      "ai": {
+        "tool": "Codex (ChatGPT Business)",
+        "prompts": "art/prompts/",
+        "references": "own sprites only",
+        "reviewedBy": "Lan, 2026-10-17"
+      }
+    },
+    {
+      "files": ["game.js: phaser"],
+      "type": "code",
+      "origin": "third-party",
+      "license": "MIT",
+      "source": "https://github.com/phaserjs/phaser"
+    }
+  ]
+}

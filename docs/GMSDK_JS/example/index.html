@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>GMSDK JS example</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 16px/1.4 system-ui, sans-serif; }
+    #game { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    #game.paused { opacity: .3; pointer-events: none; }
+    button { padding: 10px 18px; font: inherit; border: 1px solid #555; border-radius: 8px; background: #222; color: #eee; cursor: pointer; }
+    button[hidden] { display: none; }
+    #footer { position: fixed; bottom: 8px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-size: 12px; opacity: .6; }
+    #log { position: fixed; top: 8px; left: 8px; margin: 0; padding: 0; list-style: none; font: 12px/1.4 ui-monospace, monospace; opacity: .7; }
+  </style>
+  <script>
+    // The dev page of this example (template/index.html filled in). gameId / gameCode are example values; gameId,
+    // gma and game.json leaderboardId are the Duet test values the owner gave, so the leaderboard can be tried
+    // against the real GMA (docs/LEADERBOARD.md §5).
+    window.GMSDKJS_OPTIONS = {
+      platform: 'dev',
+      sdkType: 'gm',
+      gameId: 'duet',
+      gameCode: 'g0',
+      version: '26101701',
+      language: 'en',
+      api: null,
+      portal: 'https://1games.io/',
+      gma: { host: 'https://gm.azgame.io', suffix: '-az' }, // GMA key duet-az: tracking + leaderboard sign-in
+      brand: { name: 'gamesforfree.io', logo: 'https://games.1games.io/lib/brand/gamesforfree.io.png', url: 'https://gamesforfree.io/' },
+      copyright: { domain: 'azgames.io', name: 'AZ Games' }, // copyright owner: copyrightText() shows © 2026 Azgames.io
+      ads: { enable_preroll: 'yes', time_show_inter: 30, time_show_reward: 0 },
+      adsTest: true,
+      debug: true
+    };
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+  <ol id="log"></ol>
+  <div id="footer"><span id="version"></span><span id="trademark"></span></div>
+  <!-- loader.js first: the loading screen, then gmsdkjs.js and the game (main.js) side by side (docs/LOADING.md). -->
+  <script src="../loading/loader.js" data-entry="main.js" data-module data-icons="../loading/icons/"></script>
+</body>
+</html>
