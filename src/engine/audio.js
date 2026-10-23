@@ -121,9 +121,16 @@ export const AudioService = {
         for (const s of samples) loadAudioBuffer(this.ctx, s.clip);
       }
     }
+    // "interrupted" too: iOS leaves the context there after another app played sound
     const unlock = () => {
-      if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume();
+      if (this.ctx.state !== 'running' && !this.paused && !document.hidden) this.ctx.resume().catch(() => {});
     };
+    // a hidden tab or another app: no sound (the loop stops with requestAnimationFrame, WebAudio would not);
+    // back: sound again, at the latest on the next touch
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.ctx.suspend().catch(() => {});
+      else unlock();
+    });
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
   },
@@ -165,7 +172,7 @@ export const AudioService = {
     this.paused = p;
     if (!this.ctx) return;
     if (p) this.ctx.suspend().catch(() => {});
-    else this.ctx.resume().catch(() => {});
+    else if (!document.hidden) this.ctx.resume().catch(() => {});
   },
 
   setSfx(on) {

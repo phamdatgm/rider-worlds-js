@@ -2,7 +2,7 @@
   "id": "rider-worlds",
   "gameCode": "g2610211044",
   "name": "Rider Worlds",
-  "version": "26102303",
+  "version": "26102304",
   "entry": "game.js",
   "orientation": "any",
   "languages": ["en"],
