@@ -7,55 +7,57 @@ Bản chuyển đổi project Unity `D:\SourceGame\09\rider-worlds` sang web, g�
 - **UI**: chính các canvas uGUI gốc (Menu.unity, HUD của MainGame, Core) vẽ bằng WebGL qua lớp port uGUI/TextMeshPro
   (`src/ugui`) và chạy bằng các script UI gốc đã port (`src/uiscripts`); sprite gộp trong atlas WebP,
   text tiếng Anh lấy nguyên văn từ I2 Localization.
-- **Build**: Vite.
+- **Build**: Vite, theo kit GMSDK_JS 1.0.1 (`docs/GMSDK_JS/`).
 
 ## Chạy
 
 ```bash
 npm install
 npm run export-assets   # (chỉ cần khi dữ liệu Unity thay đổi) Python 3 + numpy + PyYAML + Pillow
-npm run dev             # http://localhost:5173
-npm run build           # bản phát hành cho portal azgames.io trong Build/<version>/ (JS_SDK_2.0)
-npm run build:web       # bản Vite thường trong dist/ (không có vỏ portal)
+npm run dev             # trang dev http://localhost:5173 (quảng cáo test của Google; ?preroll=0 tắt preroll)
+npm run build           # gói xuất export/build/<version>-<id>/ + <version>-<id>.zip (kit GMSDK_JS)
 npm run smoke           # smoke test headless (cần `npm run dev` đang chạy), ảnh + log trong smoke-out/
 ```
+
+`npm run build` chạy đúng chuỗi của kit ([docs/GMSDK_JS/docs/EXPORT.md](docs/GMSDK_JS/docs/EXPORT.md)): `bump-version` (version
+`yymmddXX`) → `vite build` → `compress` (PNG → WebP không mất chất lượng, audio → MP3 khi nhỏ hơn) → `tools/music-mp3.mjs`
+(nhạc nền luôn là MP3 cho Safari cũ) → `assemble` (trang gm) → `tools/check-package.mjs` (`check-export`) → `zip`.
 
 `npm run smoke` mở game bằng Chrome headless, chơi thử (biến `BOT=1` bật bot tự lái, `SECS=<n>` số giây) và trả
 mã lỗi 1 nếu trang có exception. Chrome được tìm ở vị trí mặc định của từng hệ điều hành, hoặc chỉ định bằng `CHROME=<đường dẫn>`.
 
 Bộ kịch bản QA đầy đủ hơn (tutorial, hồi sinh, shop/garage/meta, bot chơi mọi level, quét reset chunk) nằm trong `tools/qa/`;
-kết quả đợt kiểm thử gần nhất và cách chạy ở [QA_REPORT.md](QA_REPORT.md). Dung lượng build và hướng giảm ở [BUILD_SIZE.md](BUILD_SIZE.md).
+báo cáo QA theo bản build ở [docs/qa/](docs/qa/). Dung lượng build và hướng giảm ở [docs/plan/2026-10-21-dung-luong-build.md](docs/plan/2026-10-21-dung-luong-build.md).
 
 Điều khiển: giữ chuột / chạm / Space / ↑ để tăng tốc trên mặt đất và lộn (flip) khi ở trên không. `Esc`/`P` tạm dừng, `R` chơi lại.
 Cài đặt (nút bánh răng) có nút **Reset progress** để xoá save và chơi lại từ tutorial.
 
-## SDK portal (azgames.io / GMSDK)
+## SDK: GMSDK_JS 1.0.1
 
-Game dùng kit `JS_SDK_2.0/` (build + analytics) và bộ leaderboard `src/leaderboard/` (từ JS_Leaderboard).
+Kit nằm ở `docs/GMSDK_JS/` (chép nguyên từ bản gốc của kit, kèm `config.json`, `analytics.json`, `licenses.json` của game).
+Cách gắn và các quyết định: [docs/plan/2026-10-23-gmsdk-1.0.1.md](docs/plan/2026-10-23-gmsdk-1.0.1.md).
 
 | Mục | Giá trị | Chỉnh ở đâu |
 |---|---|---|
-| Tên game | Rider Worlds | `JS_SDK_2.0/config.mjs` + `src/config.mjs`: gameName |
-| Game ID (SDK) | rider-worlds-az | `JS_SDK_2.0/config.mjs`, `src/config.mjs`, `AZ_SETTINGS.gameId` trong `index.html` |
-| Mã game | G2610211044 → localStorage `azgames.g2610211044` | `gameCode` ở hai file config + `AZ_SETTINGS.gameCode` |
-| Leaderboard | leaderboard-highscore | `src/leaderboard/config.mjs` |
-| Version / bản quyền | V1.0 · © 2026 Azgames.io (popup Settings của Menu) | `src/config.mjs`: appVersion, notice (đổi notice thì chạy `node JS_SDK_2.0/tools/notice-hash.mjs`) |
+| Slug portal | rider-worlds | `docs/GMSDK_JS/config.json` → `id` (build chép sang `public/game.json` và trang dev) |
+| Mã game | g2610211044 → save `azgames.g2610211044` | `config.json` → `gameCode` (và `GAME_CODE` trong `src/main.js`, dùng khi trang không có mã) |
+| Leaderboard | leaderboard-highscore | `config.json` → `leaderboardId` |
+| Version / bản quyền | `V<version>` của `game.json` · dòng của `src/sdk/copyright.js` (popup Settings của Menu) | version do `bump-version` tăng mỗi lần build |
 
-- `src/portal.js`: khởi động SDK, bộ sự kiện chuẩn (`loaded_game`, `PlayGame`, `LiveTime`, `SessionTime`, `EndGame`/`DeathTime`,
-  `CompleteGame`/`CompleteTime`, `QuitTime`, `RestartTime`, `run_start`, `run_end`), gửi điểm mỗi ván Endless (mọi world chung một
-  bảng) và nút LEADERBOARD trên màn Home (dựng từ dữ liệu nút Challenges).
-- `src/leaderboard/ui/leaderboardPopup.js`: popup bảng xếp hạng (DOM, style `.lb-*` trong `src/style.css`), đổi tên + cờ.
-- Save nằm trong vùng `save` của key `azgames.<gameCode>` qua `src/sdk/storage.js` (file duy nhất được chạm `localStorage`);
-  save cũ `rider-worlds-save-v2`/`-v1` được gộp một lần (`legacyKeys` trong `src/config.mjs`).
-- Chữ cho người chơi của phần SDK nằm trong `Language/en.json`; `Icons/` là favicon + ảnh màn loading (GM Loader).
-- Bước nén audio và PNG → WebP của kit đang tắt (`JS_SDK_2.0/config.mjs`): audio là .ogg, tên PNG nằm trong JSON export.
+- `public/loader.js` (kit): màn loading, tải `gmsdkjs.js` + game. `public/icons/`: key art `loading.webp` của game, logo + CSS của kit.
+- `src/sdk/` (kit, chép nguyên, không sửa): `gmsdkjs-shim.js`, `storage.js`, `i18n.js`, `net.js`, `copyright.js`, `loading/`, `leaderboard/`.
+- `src/main.js`: `boot()` theo thứ tự của kit (SDK → chuyển save cũ → `game.json` + `i18n/` → tài nguyên → `ready()` → menu → preroll).
+- `src/ads.js`: tạm dừng game quanh mọi quảng cáo (`onPause` / `onResume`), quảng cáo xen giữa khi hết run, quảng cáo thưởng cho
+  mọi nút xem video của bản gốc.
+- `src/analytics/`: toàn bộ tracking (bộ chuẩn + bộ phân tích của kit); `node tools/gen-analytics.mjs` sinh lại `analytics.json`.
+- `src/portal.js`: `gameplayStart` / `gameplayStop`, gửi điểm Endless lên bảng, nút vương miện ở Home mở màn hình bảng xếp hạng của kit.
+- `src/legacy-save.js`: chuyển save của bản JS_SDK_2.0 (JSON thường ở `azgames.g2610211044`) và bản trước SDK
+  (`rider-worlds-save-v2` / `-v1`) sang save của kit, một lần. File duy nhất ngoài kit được chạm `localStorage`.
+- Mọi tải file đi qua `src/sdk/net.js` (giới hạn thời gian, thử lại 3 lần).
+- Kiểm thử SDK: `node tools/qa/sdk-check.mjs` (in mọi sự kiện tracking), `node tools/qa/legacy-save.mjs` (chuyển save cũ).
 
-> **Lưu ý bảo mật – khóa ký điểm leaderboard.** `scoreSigningKeyHex` (HMAC-SHA256 ký token điểm
-> `<playerId>:<score*1000>:<unix/30>`) được ghi thẳng trong `src/leaderboard/config.mjs` và lặp lại trong
-> `src/leaderboard/src/check-hmac.mjs` (script tự kiểm). Ai có khóa này đều ký được điểm giả.
-> - Khóa buộc phải đi theo bản phát hành vì client tự ký; trong build nó chỉ được làm rối (`javascript-obfuscator`), không giấu được hẳn.
-> - Trong repo khóa ở dạng đọc được: giữ repo **private**. Nếu repo từng public hoặc khóa bị lộ, xin bên vận hành khóa mới và
->   thay ở cả hai file trên.
+> **Khóa ký điểm leaderboard** nằm trong `src/sdk/leaderboard/leaderboard.js` của kit. Theo kit đây không phải bí mật (bản Unity
+> WebGL cũng mang nó); tool build trên API làm rối `game.js`.
 
 ## Cấu trúc
 
@@ -105,7 +107,7 @@ src/uiscripts/         script UI gốc: chuyển scene (SceneSwitcher/Transition
 
 ### Khác biệt có chủ đích so với bản gốc
 
-- Mọi chỗ cần **xem quảng cáo** được cấp ngay (nút "Free"), giống bản Unity đã gỡ SDK quảng cáo.
+- Mọi chỗ cần **xem quảng cáo** chạy quảng cáo thưởng của SDK (`src/ads.js`); chỉ thưởng khi xem hết.
 - Gói ruby **nạp tiền thật** hiển thị nhưng bị khoá ("Not Available").
 - **World 3** là "Coming Soon" như dữ liệu gốc (không có bậc rank nào mở nó).
 - **Booster** và chế độ **Bonus Ride** có code trong bản gốc nhưng không có đường vào (không scene nào dùng) nên không được bật;
@@ -119,7 +121,7 @@ src/uiscripts/         script UI gốc: chuyển scene (SceneSwitcher/Transition
   `{$c:[node, comp]}`, `{$n}`, `{$t}`, `{$prefab}`, `{$so}`, `{$mat}`, `{$mesh}`, `{$tex}`, `{$audio}`.
 - Mảng int/enum của Unity được lưu dạng chuỗi hex little-endian.
 - Mesh được tải theo nhu cầu bằng HTTP Range từ `meshes.bin`; sprite UI tham chiếu theo tên file trong atlas.
-- Save: `localStorage['rider-worlds-save-v2']` (tự chuyển đổi save v1 cũ).
+- Save: vùng `save` của `sdk.storage` (key `azgames.<gameCode>`, nén + mã hoá; `gmSave.dump()` ở console trang dev xem dạng rõ).
 
 ## Debug
 

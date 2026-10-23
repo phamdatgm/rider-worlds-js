@@ -7,7 +7,7 @@ import { launchBrowser } from './browser.mjs';
 
 const out = process.argv[2] || 'smoke-out';
 const scenario = process.argv[3] || 'endless';
-const url = process.env.URL || 'http://localhost:5173/';
+const url = process.env.URL || 'http://localhost:5173/?preroll=0';
 fs.mkdirSync(out, { recursive: true });
 
 const browser = await launchBrowser({ defaultViewport: { width: 1280, height: 720 } });

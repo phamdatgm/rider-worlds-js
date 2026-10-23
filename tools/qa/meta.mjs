@@ -170,11 +170,17 @@ export default async (h) => {
     if (!it) return { none: true };
     const can = it.settings.CanClaimGift;
     const h0 = Currencies.Hard.value;
+    // the gift plays a rewarded ad first (src/ads.js; answered at once by tools/scenario.mjs)
+    const tick = () => new Promise((r) => setTimeout(r, 300));
     it.OnClaim();
+    await tick();
     const got = Currencies.Hard.value - h0;
     const h1 = Currencies.Hard.value;
     let extra = 0;
-    for (let i = 0; i < 6; i++) it.OnClaim();
+    for (let i = 0; i < 6; i++) {
+      it.OnClaim();
+      await tick();
+    }
     extra = Currencies.Hard.value - h1;
     return { can, got, extra, amount: it.settings.giftRubyAmount, perDay: it.settings.giftsPerDay ?? it.settings.perDay };
   });
@@ -215,7 +221,11 @@ export default async (h) => {
     if (!ui) return { none: true };
     const p0 = t.progression;
     const s0 = Currencies.Soft.value, h0 = Currencies.Hard.value;
-    for (let i = 0; i < 6 && !t.UnclaimedSteps.length && !t.IsFullyUnlocked; i++) ui.OnAdButtonPressed();
+    // one rewarded ad per press (src/ads.js): wait for each answer
+    for (let i = 0; i < 6 && !t.UnclaimedSteps.length && !t.IsFullyUnlocked; i++) {
+      ui.OnAdButtonPressed();
+      await new Promise((r) => setTimeout(r, 300));
+    }
     await new Promise((r) => setTimeout(r, 800));
     const reached = t.UnclaimedSteps.length;
     let pressed = 0;

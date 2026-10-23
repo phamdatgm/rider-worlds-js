@@ -9,7 +9,7 @@ import { launchBrowser } from './browser.mjs';
 
 const script = process.argv[2];
 const out = process.argv[3] || 'scenario-out';
-const url = process.env.URL || 'http://localhost:5173/';
+const url = process.env.URL || 'http://localhost:5173/?preroll=0';
 fs.mkdirSync(out, { recursive: true });
 
 const browser = await launchBrowser({ defaultViewport: { width: Number(process.env.W || 1280), height: Number(process.env.H || 720) } });
@@ -33,6 +33,25 @@ await page.evaluateOnNewDocument((s) => {
     if (s) localStorage.setItem('rider-worlds-save-v2', s);
   } catch {}
 }, save ?? (process.env.FRESH ? '' : null));
+// Google's test ads never end in headless Chrome (the game would stay paused under them): every ad of gmsdkjs answers
+// at once, a rewarded one as watched to the end. REAL_ADS=1 keeps the real test ads (tools/qa/portal.mjs).
+if (!process.env.REAL_ADS) {
+  await page.evaluateOnNewDocument(() => {
+    let real;
+    Object.defineProperty(window, 'GMSDKJS', {
+      configurable: true,
+      get: () => real,
+      set(v) {
+        real = v;
+        if (!v) return;
+        v.preroll = async () => false;
+        v.interstitial = async () => false;
+        v.rewardedAvailable = () => true;
+        v.rewarded = async () => true;
+      },
+    });
+  });
+}
 
 const h = {
   page,
