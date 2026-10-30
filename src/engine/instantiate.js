@@ -8,6 +8,8 @@ import { RectTransform } from '../ugui/rect.js';
 
 export const ComponentRegistry = new Map();
 export const SORegistry = new Map();
+// Optional consumers can decorate new UI instances without changing serialized game references.
+export const InstantiateHooks = [];
 
 export function registerComponent(cls, name = cls.typeName || cls.name) {
   ComponentRegistry.set(name, cls);
@@ -150,6 +152,7 @@ export function Instantiate(original, position = null, rotation = null, parent =
   }
   if (position) tr.position = new THREE.Vector3(position.x, position.y, position.z ?? tr.position.z);
   if (rotation) tr.rotation = rotation;
+  for (const hook of InstantiateHooks) hook(gos, ref);
   if (root.activeInHierarchy) awakeObject(root);
   // scenes exported as prefabs can have several roots
   const extraRoots = [];

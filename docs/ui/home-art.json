@@ -1,0 +1,184 @@
+{
+  "images": [
+    {
+      "tool": "Built-in imagegen",
+      "asset": "art/ui2/home_plate_w1_v2.png",
+      "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-9c2c5866-e08a-4757-834f-045d12ada066.png",
+      "revision": 2,
+      "purpose": "Wider World 1 Home plate with smaller podium and higher camera; reduced saturation, bloom and blurred reflections per owner feedback.",
+      "prompt": "Use case: precise-object-edit / colour and lighting refinement.\nEdit the supplied World1 wider-view game plate. User asks in Vietnamese: \"reduce blurry colours and make the image look less AI-generated.\" Preserve the exact composition, camera, object silhouettes and sizes, podium/step/ring pixel positions, mountain positions and full-width framing. This is a restrained professional game-art cleanup, not a redesign.\nReduce overall colour saturation about25percent and reduce BLOOM/COLOURED LIGHT SPILL about65percent. Remove the blurry magenta/cyan colour fog and overexposed neon wash. Keep the World1 identity violet/indigo, with pink and cyan as controlled small accents. Mountains have crisp simple deliberate polygon facets, dark indigo-violet base materials, narrow magenta edge light on left and narrow cyan edge light on right. Central magenta light shafts remain but are subtler, clean and controlled rather than wide glowing smears.\nFloor becomes dark satin violet metal with clear, subtle perspective tile seams and restrained LOCAL reflections. Remove the long bright smeared rainbow reflections, excessive wet mirror shine, glowing streak clouds and huge coloured halos. Keep the existing floor lights but make them narrower and less bright, with believable local falloff. The empty podium remains the same low flat disc: dark clean glossy violet top, VERY THIN crisp pink-white rim with small soft halo, dark side wall, three crisp inset trapezoid light blocks (magenta left, pink-white frontcentre, cyan right), one thin floor step and one thin violet-pink floor ring. Avoid plastic-looking surfaces and noise.\nMake it look like intentional, clean, restrained low-poly 3D game environment art with coherent materials and one consistent lighting setup. Crisp silhouette edges, clear depth, less synthetic polish. No new objects, added details, realism or photographic textures. Do not alter geometry or reframe. Upper20% quiet dark navy sky; lower17% quiet dark floor. No vehicle, vehicle reflection, UI, text, icons, logos, watermarks, mirrored/repeated edges or guide marks. Output same opaque1672x941PNG, later exported1920x1080.",
+      "references": [
+        "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-d7c5d178-84bc-4ccd-83a0-a4763930ea1f.png",
+        "art/ui2/home_plate_w1.png"
+      ],
+      "composition": {
+        "prompt": "Use case: compositing. Image1 is the EDIT TARGET with CORRECT GEOMETRY. Image2 is the exact CONTENT AND STYLE REFERENCE. Preserve the precise silhouette and screen position of the podium top, side wall, step and floor ring from image1. Replace its background with the wider-view mountain environment from image2, and apply image2's podium/floor materials onto image1's existing geometry. Geometry comes ONLY from image1; content and style come ONLY from image2.\nKeep image1's top ellipse at centre836,588 radii274,57.5; step centre836,633 radii317,66; floor ring centre836,635 radii369,77.5, on1672x941canvas. No shift or flattening. Keep exact top and floor-ring boundaries from image1.\nMatch image2 visually: its angular SIMPLE violet mountains at the same distant size and locations, magenta shafts fanning from centre, cyan right mountain rim, magenta left rim, deep navy quiet sky, its smooth glossy neon tiled violet floor. Copy image2's broad clear sky above mountains, horizon at approximatelyy575, spacious floor on sides. Remove image1's jagged detailed mountains, rough crinkled floor and different high horizon; match image2's clean game art faithfully, not realistic.\nThe podium top stays empty glossy dark violet, thin pink-white neon rim. Change the plain vertical rectangle side lights in image1 into THREE inset TRAPEZOID light blocks like image2: magenta left, pink-white frontcentre, cyan right; rest of sidewall dark violet metal. One thin floor step, glowing pink-violet floor ring. Add polished bloom and integrated reflections like image2. Camera12degrees, level, symmetric aboutx836.\nTop20% quiet sky, bottom17% quiet floor. One full-width environment with one empty small podium. No vehicle or vehicle reflection, no UI, text, icons, logos, watermark, seams, mirrored/repeated edges or guide markings. Output opaque1672x941PNG.",
+        "references": [
+          "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-bb281364-59ee-4456-9a6c-b573890dcaca.png",
+          "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-2fa0f92d-ecc8-4dcf-924d-465145f2572a.png"
+        ],
+        "geometry_render_prompt": "Use case: sketch-to-render. EDIT THE SUPPLIED GEOMETRY IMAGE into a finished violet low-poly game environment. This image is the edit target, NOT an inspiration. Preserve the exact podium top/side/step/ring silhouette and pixel locations of the drawing. Do not resize, move or flatten any ellipse. Render materials onto its shapes and fill the empty backdrop with environment.\nAt this1672x941size, the top ellipse centre836,588,radii274,57.5; sidewall44high; step centre836,633,radii317,66; floor ring centre836,635,radii369,77.5. Trace these exact boundaries. In particular keep the ring leftmostx467/rightmost1205 at y635, and its frontmost edge y713. The step frontmost edge y699. The top backy531/fronty646. All ellipses must be as round as in the guide. One consistent12degree-down view. Symmetry aboutx836. Luminous lines in the sketch become thin neon rims/ring.\nRendering: one empty glossy dark violet top with thin hot pink-white rim and soft glow; dark violet low50pxfinal side wall, magenta-left/pink-white-centre/cyan-right trapezoid light blocks; one thin violet floor step and glowing violet-pink floor ring. Use polished faceted 3D game art, bloom, hard crisp edges, detailed reflective floor, vivid saturated violet/magenta/cyan.\nFill the navy background with a WIDE distant low-poly violet mountain valley: mountain peaks mainly y340..430 in this941pxcanvas, mountains run naturally off both side edges with unique non-repeated silhouettes. Magenta rim light left, cyan rim light right, magenta light shafts behind the empty centre. Horizon/floor behind podium aroundy570. Plenty of visible glossy violet floor on either side of the small podium. Upper20% quiet dark navy sky. Bottom17% quiet dark floor. A pulled-back camera reveals the whole spacious environment; geometry remains the SAME as the guide.\nNo vehicle, vehicle reflection, UI, text, icons, logos, watermark, guide outlines, measurements, repeated/mirrored edges, borders or panels. Output single opaque1672x941PNG."
+      },
+      "geometry_target": {
+        "top": {
+          "centre": [
+            960,
+            675
+          ],
+          "radii": [
+            315,
+            66
+          ]
+        },
+        "step": {
+          "centre": [
+            960,
+            727
+          ],
+          "radii": [
+            364,
+            76
+          ]
+        },
+        "floor_ring": {
+          "centre": [
+            960,
+            729
+          ],
+          "radii": [
+            424,
+            89
+          ]
+        }
+      },
+      "processing": "Generated at 1672x941; resized with sharp Lanczos3 to 1920x1080; opaque RGB PNG. No mirrored edge filling."
+    },
+    {
+      "tool": "Built-in imagegen",
+      "asset": "art/ui2/home_plate_w2_v2.png",
+      "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-7dd20aa5-b70f-4eb0-b4e7-e06b7de2f8fa.png",
+      "revision": 2,
+      "purpose": "Wider World 2 Home plate matching the smaller World 1 podium; reduced saturation, bloom and blurred reflections per owner feedback.",
+      "prompt": "Use case: precise-object-edit / colour and lighting refinement.\nImage1 is the green World2 wider-view game plate to EDIT. Image2 is the cleaned violet World1 plate, reference ONLY for restrained bloom, crispness and material finish. Do not introduce violet/blue into World2. User asks in Vietnamese: \"reduce blurry colours and make the image look less AI-generated.\"\nPreserve image1's exact camera, composition, all object silhouettes/positions, the small podium's top/sidewall/step/ring geometry and full-width environment. Apply a professional restrained game-art cleanup, not a redesign.\nReduce overall colour saturation about25percent and reduce BLOOM and COLOURED LIGHT SPILL about65percent. Remove blurry emerald colour fog, neon overexposure and yellow/green reflection smears. Keep World2 identity deep forest-green/charcoal and warm orange tracks with small gold accents. Industrial ruins and pillars have crisp, readable simple low-poly planes, dark desaturated green stone/metal, sparse mint edge light. Keep bridges and orange-red striped tracks but use controlled orange material with narrow warm light edges, not big white-yellow glowing halos. Keep a few small gold sparks, reduce excessive scattered dots. Central green shafts remain very subtle, clean and narrow, with clear geometry behind.\nFloor is dark satin green metal, subtle coherent perspective tile seams, restrained LOCAL reflections like image2; avoid wet shiny ripples, long smeared green/gold light streaks, huge colored halos or procedural surface noise. Keep floor lights but make them thinner and less bright. Empty low disc podium stays in exact position: dark clean glossy green top, VERY THIN crisp mint-white rim with small soft halo, dark side wall, three crisp inset gold-orange trapezoid lights, one thin floor step and one thin glowing green floor ring. Match the restrained contrast and clear shapes of image2.\nIntentional clean low-poly3D game environment art, coherent surfaces and one consistent lighting setup; less synthetic polish, no photorealistic textures or added detail. Do not move or resize anything or reframe. Top20% quiet dark green-black sky; lower17% quiet dark floor. No vehicle, vehicle reflection, UI, text, icon, logo, watermark, guides or mirrored/repeated edges. Output same opaque1672x941PNG for later1920x1080export.",
+      "references": [
+        "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-bcc41fd9-82a6-46cb-a67e-388198f1eef9.png",
+        "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-9c2c5866-e08a-4757-834f-045d12ada066.png",
+        "art/ui2/home_plate_w2.png"
+      ],
+      "composition": {
+        "prompt": "Use case: compositing/style-transfer. Image1 is the EDIT TARGET and exact locked PODIUM GEOMETRY MASTER, World1 revision2. Image2 is the World2 revision2 CONTENT AND STYLE reference. Make a green World2 version of image1. Preserve image1's precise podium top, sidewall, step, and floor-ring silhouettes and positions, not image2's less accurate rings.\nKeep the SAME top ellipse, same50pxfinal low side wall, same single thin floor step and same floor ring geometry as image1. Use image2's materials: empty dark glossy green top, thin luminous mint-white rim, dark green wall and three gold-orange trapezoid light blocks, green-glowing step and green floor ring. Preserve exact guide proportions on1672x941canvas: top centre836,588 radii274,57.5; step centre836,633 radii317,66; floor ring centre836,635 radii369,77.5. One shared12degree-down camera. No movement/resizing of geometry, no extra tiers.\nReplace violet mountain environment with the wider-view dark green industrial environment of image2, keeping image2's scenic scale and composition: distant layered low-poly broken ruins and industrial pillars/bridges, green haze, orange-red striped curved tracks sweeping down from both sides behind the empty centre, sparse small gold sparks, glossy dark green floor with mint streaks and green/gold reflected light. Preserve full-width distinct scenery running off both edges without mirrored/repeated strips. Quiet dark green-black top20% sky, quiet dark floor at bottom17%. The camera remains pulled back, all scenery about26% smaller than original first plate, with plenty of sky and floor beside the small podium.\nNo violet remains. No vehicle, vehicle reflection, UI, text, numbers, icons, logos, watermark, measurements, guides or border. Output one full-bleed opaque1672x941PNG.",
+        "references": [
+          "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-d7c5d178-84bc-4ccd-83a0-a4763930ea1f.png",
+          "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-f7f69880-9d8c-4011-9e1d-ae115abd319f.png"
+        ],
+        "placement_prompt": "Use case: precise-object-edit. Make one small placement correction to the green plate. Move ONLY the podium TOP DISC, its mint rim and adjoining side wall DOWN by10pixels on the current1672x941canvas. The top currently sits about10pixels too high. Keep its width and ellipse shape unchanged. Keep floor ring, floor step, floor reflections, environment, tracks, ruins, sky and floor fixed.\nAfter correction the top outer ellipse should have BACK edge y529..531 and FRONT edge y646..648, with centre near(836,588), leftmostx562 and rightmostx1110. The sidewall front joins to the existing thin step at abouty690..697. Preserve the low flat disc and one step; no tall drum. The three gold-orange trapezoid lights move down with the side wall.\nThis is an absolute ten-pixel downward translation of the top disc and wall, not a camera or scene shift. All other pixels stay unchanged. Empty dark glossy green top, thin mint rim, gold wall lights, green glow. No added objects, UI, text, vehicle, reflections of vehicles, logo or watermark. Output same1672x941opaquePNG."
+      },
+      "geometry_target": {
+        "top": {
+          "centre": [
+            960,
+            675
+          ],
+          "radii": [
+            315,
+            66
+          ]
+        },
+        "step": {
+          "centre": [
+            960,
+            727
+          ],
+          "radii": [
+            364,
+            76
+          ]
+        },
+        "floor_ring": {
+          "centre": [
+            960,
+            729
+          ],
+          "radii": [
+            424,
+            89
+          ]
+        }
+      },
+      "processing": "Generated at 1672x941; resized with sharp Lanczos3 to 1920x1080; opaque RGB PNG. No mirrored edge filling."
+    },
+    {
+      "tool": "Built-in imagegen",
+      "asset": "art/ui2/home_plate_w1.png",
+      "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-b17c797f-0a82-43ce-9ae0-1f9ba0de5cd0.png",
+      "purpose": "World 1 violet Home environment with one empty podium; vehicle and all controls are rendered live.",
+      "prompt": "Use case: compositing. Produce one opaque 1920x1080 PNG game background.\nImage1 is the EXACT SPATIAL LAYOUT / GEOMETRY guide: preserve its canvas ratio, ellipse boundaries, placement and proportions exactly. Render this guide into polished neon game art; no outlines or diagram marks remain. The podium top must stay as deep as in this guide, not become shallower.\nImage2 is the background environment EDIT TARGET: retain its violet low-poly mountains, magenta central shafts, cyan right rim lights, magenta left rim lights, dark navy quiet upper sky and glossy violet floor. Replace its flush floor ring with the rendered guide podium.\nImage3 is a MATERIAL AND STYLE REFERENCE only, never copy its vehicle or interface.\nOne empty low flat circular podium, symmetric and level. Geometry in 1920x1080: top ellipse outer edge centre960,686 radii422,84; step ellipse centre960,759 radii492,98; outer floor ring centre960,759 radii573,115. Top back edge y602, front edge y770. Side wall front is70px high to y840. Top width844px. Keep guide silhouette EXACTLY, including the larger elliptical top depth.\nThin bright pink-white top rim with soft magenta glow, dark glossy violet empty top, dark violet side wall inset trapezoid light blocks pink-white at front centre, magenta on left, cyan on right. One thin violet-pink bottom step and violet-pink floor ring. Integrated reflections of podium lighting only.\nCamera about12 degrees above floor, all ellipses and floor in one perspective. Top26% quiet navy sky, bottom17% y>=896 quiet dark floor. No vehicle, vehicle reflections, UI, text, numbers, labels, icons, logos, watermarks, no guides. Full bleed single plate.",
+      "refinements": [
+        {
+          "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-748ad6df-56f7-42e5-998f-60b0e8e83063.png",
+          "prompt": "Use case: precise-object-edit. Edit only the UPPER SKY of the supplied violet empty-podium background plate. Keep podium, step, ring, floor, mountains and lower central light shafts exactly unchanged, with identical pixel positions.\nThe entire top26% of the final1920x1080canvas, y=0..280 (equivalent y=0..244 of1672x941source), must be quiet dark navy SKY. Remove the diagonal violet streaks that reach into this top area, and lower/shorten the very bright magenta beam entering from the far left and cyan beam entering from the far right so all prominent bright beam segments are below y=300final (y=261source). Blend naturally into the navy sky with no boundary. Preserve low-poly violet mountains, magenta light shafts behind centre below the safe area, cyan right/magenta left mountain rims and reflective floor.\nKeep exactly ONE empty low flat disc podium, thin hot pink-white rim, dark glossy violet top, front pink-white trapezoid light, left magenta/right cyan trapezoid lights, violet-pink step and floor ring. No movement, resizing, camera changes, no additional objects. Bottom17% quiet dark floor. Output one opaque1920x1080PNG. No vehicles, vehicle reflections, UI, text, icons, logos, watermarks or measurement marks."
+        }
+      ],
+      "references": [
+        "public/assets/ui_extra/ui2_home.webp",
+        "docs/ui/ref/home.png"
+      ],
+      "geometry_guide": {
+        "top": {
+          "centre": [
+            960,
+            686
+          ],
+          "radii": [
+            422,
+            84
+          ]
+        },
+        "step": {
+          "centre": [
+            960,
+            759
+          ],
+          "radii": [
+            492,
+            98
+          ]
+        },
+        "floor_ring": {
+          "centre": [
+            960,
+            759
+          ],
+          "radii": [
+            573,
+            115
+          ]
+        }
+      },
+      "processing": "Generated at 1672x941; resized with sharp Lanczos3 to 1920x1080 and saved as opaque RGB PNG."
+    },
+    {
+      "tool": "Built-in imagegen",
+      "asset": "art/ui2/home_plate_w2.png",
+      "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-871792fe-9e5e-4e11-b4d3-8dd963239084.png",
+      "purpose": "World 2 green industrial Home environment with one empty podium matching the World 1 camera.",
+      "prompt": "Use case: style-transfer. Asset: one opaque 1920x1080 PNG, 16:9 game Home background plate, World 2.\nImage1 (violet empty podium plate) is the EDIT TARGET and the locked camera, composition and PODIUM GEOMETRY MASTER. Preserve its podium silhouette, ellipse dimensions and screen position exactly. Image2 (green World2 screenshot) is reference for environment, materials and palette ONLY; discard every vehicle, its reflection, and every UI element, letter, digit and icon. Image3 is the exact podium geometry guide, use its bounds to maintain matching perspective.\nChange the violet mountain world into the World2 environment: dark green low-poly industrial ruins and broken pillars on the left and right, sparse bridges and industrial structural silhouettes farther behind, orange-red striped curved tracks sweeping down from the left and rising toward right, framing the empty centre behind the podium. Keep tracks below the top26% quiet sky, with warm orange/gold edges, green haze, a few small gold sparks around tracks, glossy dark green floor and mint-green light streaks. Clear empty centre for live vehicle rendering; there is NO vehicle in this image.\nRecolour the same ONE empty low disc podium without moving/resizing/changing its geometry: thin luminous mint-green top rim, flat empty dark glossy green top, dark green side wall with gold-orange trapezoid light blocks, one thin green-glowing wide step at floor level, green-glowing floor ring. No violet or cyan-blue remains.\nCoordinates in final 1920x1080: outer top rim ellipse centre(960,686), radii(422,84),bounds x538..1382,y602..770. Bottom step ellipse centre(960,759),radii(492,98),bounds x468..1452,y661..857. Floor ring centre(960,759),radii(573,115),bounds x387..1533,y644..874. Front side wall ~70px tall from top front y770 to floor y840, low flat disc, not a tall drum. Match the guide proportions and the master placement within about10px. Camera slightly down12degrees above floor, top/step/floor ring all share same level perspective, mirror-symmetric about x960.\nTop26% y0..280 stays quiet dark green-black sky with subdued haze only. Bottom17% y>=896 stays quiet dark green floor with only soft subtle reflected light, no prominent objects or light bars.\nAvoid absolutely: vehicles, motorcycles, riders, vehicle reflections, UI, text, icons, logos, watermark, measurement labels, diagram marks, borders. Only environment and one empty podium assembly.",
+      "refinements": [
+        {
+          "source": "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-89198bed-035c-45da-ab58-78a7d2fa9463.png",
+          "prompt": "Use case: precise-object-edit. Edit only the BACKGROUND ABOVE THE FLOOR of the supplied green industrial empty-podium plate. Keep the podium, rim, step, ring, floor, and their pixel positions and all foreground lighting EXACTLY unchanged.\nRequired single correction: the top26% of the canvas must be quiet dark green-black SKY. Remove the tops of all tall ruins, pillars, bridges, tracks, bright sparks from y=0 to y=280 on a final1920x1080 canvas (equivalently y=0..244 on this1672x941 input). The entire full-width top26% must contain only smooth subdued dark sky/haze; objects begin BELOW this safe area. Shorten industrial towers and bridges so their highest point starts no higher than y=300 final. Lower the far left orange track entry from its current height to y=330 final, then let it sweep down behind the podium centre. The right track entry can be at y=360final. Preserve richly layered dark green industrial ruins and pillars BELOW the safe sky area, orange/red striped sweeping tracks, green haze and sparse small gold sparks. Blend the boundary naturally with negative space sky; do not create a horizontal cutoff or band.\nKeep an empty glossy dark green top, mint rim, gold-orange trapezoid wall lights, glowing green step and ring; no changes to geometry. Bottom17% remains quiet floor. Output one opaque1920x1080PNG full bleed. No text, UI, vehicles, vehicle reflections, logos, watermarks or markings."
+        }
+      ],
+      "references": [
+        "C:/Users/Doublemint/.codex/generated_images/01a180e0-5a8c-7b20-9e70-6229b057be62/exec-748ad6df-56f7-42e5-998f-60b0e8e83063.png",
+        "docs/ui/ref/home_world2.png"
+      ],
+      "processing": "Generated at 1672x941; resized with sharp Lanczos3 to 1920x1080 and saved as opaque RGB PNG."
+    }
+  ],
+  "tool": "Built-in imagegen",
+  "asset": "public/assets/ui_extra/ui2_home.webp",
+  "source": "C:/Users/Doublemint/.codex/generated_images/01a17cac-a4e2-74c3-acc2-b9abfff2ce5b/exec-c7d0be72-ef61-4f61-8757-631805f345e8.png",
+  "purpose": "Home environmental plate; all controls and vehicle remain live uGUI / WebGL.",
+  "prompt": "Production 16:9 background plate for a WebGL game Home screen, based on the supplied Rider Worlds reference. Only the environmental background: no interface, text, icons, motorcycle or podium. Polished low-poly violet mountain valley, deep navy upper sky, magenta light shafts behind the empty center, cyan rim light on the right mountains and magenta on the left, reflective futuristic neon floor. Top 26% quiet navy sky; mountain peaks left and right at 26–38% height; empty central vehicle area at x50%, y53%; floor starts at 60%; empty podium area x50%, y67%; bottom 17% quiet for navigation. Saturated violet, cyan, magenta, cinematic bloom, crisp faceted edges. No logos or watermarks."
+}

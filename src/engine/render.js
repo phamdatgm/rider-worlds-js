@@ -118,7 +118,7 @@ export function getMaterial(ref, hasVertexColor = false) {
     } catch (e) {
       console.warn('material', id, e);
     }
-    if (mat === null && json) mat = genericMaterial(json);
+    if (mat === null && json) mat = genericMaterial(json, hasVertexColor);
   }
   if (!mat) mat = fallbackMaterial();
   mat.userData.unityId = id;
@@ -132,11 +132,17 @@ function fallbackMaterial() {
   return _fallback;
 }
 
-function genericMaterial(json) {
+function genericMaterial(json, hasVertexColor = false) {
   const c = json.colors?._BaseColor || json.colors?._Color || [1, 1, 1, 1];
   const texId = json.textures?._BaseMap?.tex || json.textures?._MainTex?.tex;
-  const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(c[0], c[1], c[2]), map: texId ? getTexture(texId) : null });
-  if (json.queue >= 3000) {
+  const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(c[0], c[1], c[2]), map: texId ? getTexture(texId) : null, vertexColors: hasVertexColor });
+  // an additive shader (UI_Additive on a 3D particle: a legendary landing's halo) adds its glow: alpha-blended, the
+  // glow texture's black square showed as a white plate over the scene
+  if (/Additive/i.test(json.shader)) {
+    m.blending = THREE.AdditiveBlending;
+    m.transparent = true;
+    m.depthWrite = false;
+  } else if (json.queue >= 3000) {
     m.transparent = true;
     m.depthWrite = false;
   }
@@ -239,7 +245,9 @@ export class Renderer extends Behaviour {
     this._deactivate();
     if (this.mesh) {
       this.mesh.removeFromParent();
-      if (this._ownsMats) for (const m of this._mats || []) m.dispose?.();
+      // owned material copies are not disposed: a material holds no GPU memory of its own (its textures are
+      // shared), and disposing the last user of a shader variant deleted the compiled program, so every vehicle
+      // rebuild (page switch, garage swap) recompiled it. The programs stay bounded by the shader variants.
       this.mesh = null;
     }
   }

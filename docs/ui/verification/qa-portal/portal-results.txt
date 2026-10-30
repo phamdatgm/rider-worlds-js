@@ -1,0 +1,10 @@
+PASS FOOTER "V26102306\n© 2026 Azgames.io"
+PASS SCREEN-MENU screen_view home / challenges
+PASS LB-OPEN button true, overlay true
+PASS SCREEN-LB screen_view + feature_open leaderboard
+PASS LB-CLOSE Esc closes the screen
+PASS INTER-FIRST-RUN no interstitial after the first run
+PASS INTER-RUN-END game paused under the ad (frames 57 -> 57) 
+PASS RV-AVAILABLE rewardedAvailable true
+PASS RV-PAUSE frames 33 -> 33, result pending
+TODO RV-RESUME the test ad did not end headless: check by hand

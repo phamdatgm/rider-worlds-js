@@ -59,8 +59,14 @@ export class Card {
     return (this.def.world || 1) - 1;
   }
 
+  /** each world's first card of every collection (vehicle, colour, trail, death, landing) is unlocked from the start,
+   *  its world locked or not (owner's request, as World 1's defaults) */
+  get IsWorldStarter() {
+    return this.IsRankCard && CardService.WorldStarter(this.Type, this.UnlocksInWorldID) === this;
+  }
+
   get IsLockedInWorld() {
-    return WorldManager.HighestUnlockedWorld() < this.UnlocksInWorldID;
+    return !this.IsWorldStarter && WorldManager.HighestUnlockedWorld() < this.UnlocksInWorldID;
   }
 
   get IsLocked() {
@@ -253,6 +259,31 @@ export const CardService = {
       if ((st.id === 'Unlock Card' || st.id === 'Card') && Number(st.extra)) this.reserved.add(Number(st.extra));
     }
     if (!Save.data.cards) this.CreateNewSaveData();
+    // every world past the first starts with the first card of each collection, unlocked from the start (owner's request)
+    for (let w = 1; w <= WorldManager.HighestWorldIndex; w++) this.GrantWorldStarters(w);
+  },
+
+  /** the first card of a collection in a world (meta order) */
+  WorldStarter(type, world) {
+    return this.ofType(type).find((c) => c.UnlocksInWorldID === world) || null;
+  },
+
+  GrantWorldStarters(world) {
+    if (world <= 0) return;
+    for (const t of RANK_TYPES) {
+      const c = this.WorldStarter(t, world);
+      if (c && !c.HasSaveData) c.Unlock();
+    }
+  },
+
+  /** The collections are equipped per world (each world shows its own cards). World 1 keeps the original save slot; a
+   *  later world defaults to its first card of each collection. `world`: the slot of that world (a card is equipped
+   *  into its own world's slot), else the shown world's (WorldManager.ShownWorldIndex). */
+  equippedSlot(type, world = WorldManager.ShownWorldIndex) {
+    const w = world;
+    if (!RANK_TYPES.includes(type) || w === 0) return { map: Save.data.cards.equipped, fallback: DEFAULT_CARDS[type] };
+    const by = (Save.data.cards.equippedByWorld ||= {});
+    return { map: (by[w] ||= {}), fallback: this.WorldStarter(type, w)?.ID ?? DEFAULT_CARDS[type] };
   },
 
   CreateNewSaveData() {
@@ -269,16 +300,18 @@ export const CardService = {
   },
 
   Equipped(type) {
-    return this.get(Save.data.cards.equipped[type] ?? DEFAULT_CARDS[type]);
+    const { map, fallback } = this.equippedSlot(type);
+    return this.get(map[type] ?? fallback);
   },
 
   IsEquipped(card) {
-    return Save.data.cards.equipped[card.Type] === card.ID;
+    const { map, fallback } = this.equippedSlot(card.Type, card.UnlocksInWorldID);
+    return (map[card.Type] ?? fallback) === card.ID;
   },
 
   Equip(card) {
     if (!card || card.IsLocked || this.IsEquipped(card)) return;
-    Save.data.cards.equipped[card.Type] = card.ID;
+    this.equippedSlot(card.Type, card.UnlocksInWorldID).map[card.Type] = card.ID;
     Save.setDirty();
     Analytics.itemEquip(card);
     this.onEquippedChanged.Raise(card.Type);
@@ -297,7 +330,8 @@ export const CardService = {
     const cand = [];
     for (const t of types) {
       for (const c of this.ofType(t)) {
-        if (!c.IsAllowedAsReward || c.IsMaxedOut || c.IsLocked !== selectLocked || c.IsLockedInWorld) continue;
+        // a locked world's cards never drop, its starters included (they are unlocked early only to be shown)
+        if (!c.IsAllowedAsReward || c.IsMaxedOut || c.IsLocked !== selectLocked || WorldManager.HighestUnlockedWorld() < c.UnlocksInWorldID) continue;
         if (this.reserved.has(c.ID) || c.MaxCards - c.Total === 0) continue;
         if (filter && !filter(c)) continue;
         cand.push(c);

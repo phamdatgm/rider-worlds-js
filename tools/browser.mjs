@@ -20,5 +20,5 @@ export function launchBrowser(opts = {}) {
   const args = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'];
   // Chrome refuses to start as root (containers, CI) unless the sandbox is off
   if (process.getuid?.() === 0) args.push('--no-sandbox');
-  return puppeteer.launch({ executablePath: chromePath(), headless: 'new', args, ...opts });
+  return puppeteer.launch({ executablePath: chromePath(), headless: 'new', args, timeout: 120000, ...opts });
 }

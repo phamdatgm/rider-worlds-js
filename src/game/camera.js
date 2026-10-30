@@ -15,14 +15,14 @@ const DEFAULT_VCAM = {
   fov: 60,
   transposer: {
     m_ScreenX: 0.25,
-    m_ScreenY: 0.45,
+    m_ScreenY: 0.52, // Unity scene uses 0.45; lowered to go with the tighter framing below
     m_XDamping: 0.5,
     m_YDamping: 0.4,
     m_ZDamping: 1,
     m_CameraDistance: 10,
     m_GroupFramingMode: 2,
     m_AdjustmentMode: 1,
-    m_GroupFramingSize: 0.4,
+    m_GroupFramingSize: 0.6, // Unity scene uses 0.4; framed tighter so the vehicle reads bigger
     m_MinimumDistance: 1,
     m_MaximumDistance: 5000,
     m_TrackedObjectOffset: [0, 0, 0],

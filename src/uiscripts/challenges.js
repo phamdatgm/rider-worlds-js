@@ -9,7 +9,7 @@ import { Challenge, ChallengeState, ChallengeManager as Challenges, ResetReason 
 import { Color } from '../ugui/graphic.js';
 import { UISprites } from '../ugui/sprites.js';
 import { InputUIBlocker } from '../ugui/events.js';
-import { ev, localize, ParticleStarter } from './common.js';
+import { ev, localize, ParticleStarter, playFeedbacksAtOnce } from './common.js';
 import { AudioSampleID, ChallengeManager, WorldManager, SettingsContainer, CurrencyType } from './services.js';
 import { TransitionScreen } from './scenes.js';
 import { MainMenuManager } from './home.js';
@@ -615,6 +615,12 @@ export class UI_ChallengeOverlay extends MonoBehaviour {
     return this.isTransitioningIn || this.isTransitioningOut;
   }
 
+  /** a routine that ends inside StartCoroutine (nothing to wait for or claim) has already cleared _co: keep it clear */
+  StartRoutine(gen) {
+    const co = this.StartCoroutine(gen);
+    return co?.done ? null : co;
+  }
+
   Awake() {
     this.closeBtn?.onClick.AddListener(() => this.TryClose());
     this._complete = () => this.OnChallengeComplete();
@@ -628,7 +634,7 @@ export class UI_ChallengeOverlay extends MonoBehaviour {
 
   OnChallengeComplete() {
     if (this.IsOpen && !this._co) {
-      this._co = this.StartCoroutine(this.AutoClaim());
+      this._co = this.StartRoutine(this.AutoClaim());
       this.UpdateWorldChallengesProgress();
     }
   }
@@ -638,11 +644,12 @@ export class UI_ChallengeOverlay extends MonoBehaviour {
     this.gameObject.SetActive(true);
     this.headerText?.SetText(localize(this.headerString).split('{[0]}').join(String(WorldManager.Instance.CurrentWorldIndex + 1)));
     this.SetVisuals(SettingsContainer.Instance.WorldVisualSettings);
-    if (!instant) this.transitionFeedbackIn?.PlayFeedbacks();
+    // opens at once (owner's request): the transition lands on its end state, no 0.2 s wait before the auto claim
+    playFeedbacksAtOnce(this.transitionFeedbackIn);
     for (const a of this.GetComponentsInChildren('DOTweenAnimation')) a.DOPlayForward();
     this.IsAutoClaiming = this.container.SlotSetups.some((s) => s.slot.HasAssignedChallenge && s.slot.AssignedChallenge.IsCompleted);
     if (this.IsAutoClaiming) InputUIBlocker.DisableInput();
-    this._co = this.StartCoroutine(this.WaitForOpen(instant));
+    this._co = this.StartRoutine(this.WaitForOpen(true));
     this.OnOpen.Invoke();
     return true;
   }
@@ -672,12 +679,16 @@ export class UI_ChallengeOverlay extends MonoBehaviour {
     this.worldProgressionText?.SetText(`${Math.min(s.WorldChallengesProgress, s.WorldChallengesTotal)}/${s.WorldChallengesTotal}`);
   }
 
+  // closes at once (owner's request) instead of playing transitionFeedbackOut and the tweens backwards; the tweens
+  // are rewound to where playing them backwards ends, so the next open plays them forward again. transitionFeedbackOut
+  // still lands on its end state: it brings back the High Score display that transitionFeedbackIn faded out (and with
+  // it the leaderboard button, src/portal.js)
   TryClose() {
     if (this._co || !this.isActiveAndEnabled) return false;
-    this.transitionFeedbackOut?.PlayFeedbacks();
-    for (const a of this.GetComponentsInChildren('DOTweenAnimation')) a.DOPlayBackwards();
-    this._co = this.StartCoroutine(this.WaitForClose());
+    playFeedbacksAtOnce(this.transitionFeedbackOut);
+    for (const a of this.GetComponentsInChildren('DOTweenAnimation')) a.DORewind();
     this.OnClose.Invoke();
+    this.gameObject.SetActive(false);
     return true;
   }
 
@@ -707,14 +718,6 @@ export class UI_ChallengeOverlay extends MonoBehaviour {
     this.IsAutoClaiming = false;
     InputUIBlocker.EnableInput();
     this._co = null;
-  }
-
-  *WaitForClose() {
-    this.isTransitioningOut = true;
-    yield new WaitForSeconds(this.transitionFeedbackOut?.TotalDuration ?? 0);
-    this.isTransitioningOut = false;
-    this._co = null;
-    this.gameObject.SetActive(false);
   }
 }
 

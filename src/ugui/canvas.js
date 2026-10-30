@@ -227,6 +227,7 @@ export const UISystem = {
 
   /** drive the root canvases from the screen size + CanvasScaler, then run the layout controllers */
   layout() {
+    this.hooks.beforeLayout?.();
     for (const c of this.rootCanvases()) {
       const rt = c.transform;
       const scaler = c.GetComponent(CanvasScaler);
@@ -249,6 +250,7 @@ export const UISystem = {
       }
       LayoutSystem.run(rt);
     }
+    this.hooks.afterLayout?.();
   },
 
   /** build the ordered draw list for every active root canvas */

@@ -78,7 +78,8 @@ export class UIParticle extends Graphic {
     super.OnEnable();
     for (const ps of this.particles) ps._ui = true;
     this.ModifyScale();
-    this.Play();
+    // Coffee's UIParticle never plays on enable: a system starts on its own playOnAwake, the rest wait for a
+    // feedback or script (the world stats unlock bursts flashed over the Progress popup on every open)
   }
 
   Play() {

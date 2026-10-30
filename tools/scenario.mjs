@@ -14,6 +14,8 @@ fs.mkdirSync(out, { recursive: true });
 
 const browser = await launchBrowser({ defaultViewport: { width: Number(process.env.W || 1280), height: Number(process.env.H || 720) } });
 const page = await browser.newPage();
+// Large first-run Vite transforms can exceed Puppeteer's 30s navigation default on Windows.
+page.setDefaultNavigationTimeout(180000);
 const logs = [];
 page.on('console', (m) => {
   const t = `[${m.type()}] ${m.text()}`;
@@ -90,6 +92,7 @@ try {
   await mod.default(h);
 } catch (e) {
   console.log('SCENARIO FAILED:', e.message);
+  process.exitCode = 1;
   await h.shot('zz-failure').catch(() => {});
 } finally {
   fs.writeFileSync(path.join(out, 'console.log'), logs.join('\n'));

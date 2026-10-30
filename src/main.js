@@ -26,6 +26,7 @@ import * as MetaDebug from './meta/debug.js';
 import * as UGUI from './ugui/index.js';
 import { UISprites, initUGUI } from './ugui/index.js';
 import './uiscripts/index.js';
+import './ui2/layout.js';
 import { SceneHost, TransitionScreen, getSceneSwitcher, EndlessModeID, TimedLevelModeID } from './uiscripts/scenes.js';
 import { UIState, WorldManager } from './uiscripts/services.js';
 import { loadSDK } from './sdk/gmsdkjs-shim.js';
@@ -188,6 +189,7 @@ async function boot() {
   });
   loader.hide();
   menuReady();
+  UISprites.warm(Render.renderer);
   Analytics.sessionStart();
   await sdk.preroll();
 }

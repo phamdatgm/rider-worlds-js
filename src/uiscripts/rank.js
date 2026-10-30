@@ -13,7 +13,7 @@ import { PlayerRank } from '../meta/rank.js';
 import { UISystem } from '../ugui/canvas.js';
 import { InputUIBlocker } from '../ugui/events.js';
 import { Color } from '../ugui/graphic.js';
-import { localize, UI_OverlayBase } from './common.js';
+import { localize, UI_OverlayBase, playFeedbacksAtOnce } from './common.js';
 import { PlayerRankManager, SettingsContainer, UnlockTypeEnum, AudioSampleID } from './services.js';
 import { UIStatics } from './statics.js';
 import { rewardDefinition, rewardAsset, CurrencyHelper, SkippableMMFeedback, unlockExtraData, localizeSingular, locReplace, UIInput } from './rewards.js';
@@ -504,10 +504,8 @@ export class UI_RewardTrack extends MonoBehaviour {
     UIStatics.RewardTrackOpen = true;
     this.gameObject.SetActive(true);
     this.playerRank?.SetCurrentStars();
-    if (!skipOpenAnimation) {
-      this.OnStartAnimation();
-      this.onOpen?.PlayFeedbacks();
-    }
+    // opens at once (owner's request): onOpen lands on its end state instead of sliding the track in over 0.5 s
+    if (!skipOpenAnimation) playFeedbacksAtOnce(this.onOpen);
     this.StartCoroutine(this.OpenScrolling());
   }
 
@@ -525,18 +523,14 @@ export class UI_RewardTrack extends MonoBehaviour {
     else if (this.ShouldShowRankUpAnimation) this.StartLevelUpAnimation();
   }
 
+  // closes at once (owner's request) instead of waiting for the onClose feedback (0.5 s); the feedback still lands on
+  // its end state, for what it restores outside the track
   Close() {
     if (!UIStatics.RewardTrackOpen) return;
     UIStatics.RewardTrackOpen = false;
-    this.onClose?.PlayFeedbacks();
-    this.OnStartAnimation();
-    const self = this;
-    this.StartCoroutine((function* () {
-      yield null;
-      while (self.onClose?.IsPlaying) yield null;
-      self.OnEndAnimation();
-      self.gameObject.SetActive(false);
-    })());
+    playFeedbacksAtOnce(this.onClose);
+    this.OnEndAnimation();
+    this.gameObject.SetActive(false);
   }
 
   SetBannerStates(level) {

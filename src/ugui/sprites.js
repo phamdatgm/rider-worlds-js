@@ -97,6 +97,20 @@ export const UISprites = {
     this.ready = true;
   },
 
+  /** upload the atlas pages to the GPU one at a time while the browser is idle: uploaded on first draw, each
+   *  ~2048² page stalled the frame a popup or page first showed it in */
+  warm(renderer) {
+    const pages = [...this.pages];
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 50));
+    const next = () => {
+      const tex = pages.shift();
+      if (!tex) return;
+      if (tex.image) renderer.initTexture(tex);
+      idle(next, { timeout: 1000 });
+    };
+    idle(next, { timeout: 1000 });
+  },
+
   /** {$sprite: rid, fid} | {$tex: rid} | 'rid' | Sprite -> Sprite (or null) */
   get(ref) {
     if (!ref) return null;

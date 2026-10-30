@@ -102,8 +102,12 @@ export class HUD extends MonoBehaviour {
     if (!hasFocus && this.runState.IsRunning && !Tutorials.IsActive) this.pauseMenu.SetActive(true);
   }
 
-  /** keyboard: Esc / P toggle the pause menu like the pause button / its resume button */
+  /** keyboard: Esc / P toggle pause; R invokes the same restart button used by the HUD */
   OnKey(e) {
+    if (e.code === 'KeyR') {
+      if (this.restartButton?.gameObject.activeInHierarchy && this.runState.IsRunning && !Tutorials.IsActive && !this._reviveOpen) this.restartButton.Press();
+      return;
+    }
     if (e.code !== 'Escape' && e.code !== 'KeyP') return;
     if (!this.pauseButton?.gameObject.activeInHierarchy && !this.pauseMenu.activeSelf) return;
     if (this.pauseMenu.activeSelf) this.pauseMenu.GetComponent('UI_PauseMenu')?.OnPressedResume?.();

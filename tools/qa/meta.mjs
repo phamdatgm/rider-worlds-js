@@ -8,7 +8,7 @@ export default async (h) => {
   await boot(h);
   // page-side helpers
   await ev(async () => {
-    const { World } = await import('/src/engine/scene.js');
+    const { World } = await __mod('/src/engine/scene.js');
     window.__q = {
       all: (type) => [...World.behaviours].filter((b) => b.constructor.typeName === type || b.constructor.name === type),
       active: (type) => window.__q.all(type).filter((b) => b.gameObject.activeInHierarchy && !b.gameObject._destroyed),
@@ -25,7 +25,7 @@ export default async (h) => {
   const dismiss = async () => {
     for (let i = 0; i < 25; i++) {
       const busy = await ev(async () => {
-        const { UIStatics } = await import('/src/uiscripts/statics.js');
+        const { UIStatics } = await __mod('/src/uiscripts/statics.js');
         const q = window.__q;
         const pop = q.active('PlayerRankUpPopupUI')[0];
         if (pop) {
@@ -42,16 +42,16 @@ export default async (h) => {
   };
   // ---------------------------------------------------------------- menu pages
   const pages = await ev(async () => {
-    const { MainMenuManager } = await import('/src/uiscripts/home.js');
+    const { MainMenuManager } = await __mod('/src/uiscripts/home.js');
     const mm = MainMenuManager.Instance;
     return mm.switchers.map((s, i) => ({ i, name: s.menuScreen?.gameObject?.name || s.menuButton?.gameObject?.name, unlockRank: s.UnlockRank, unlocked: s.IsUnlocked() }));
   });
   info('pages', pages);
-  const rank0 = await ev(async () => (await import('/src/meta/rank.js')).PlayerRank.CurrentRank);
+  const rank0 = await ev(async () => (await __mod('/src/meta/rank.js')).PlayerRank.CurrentRank);
   const locked = pages.find((p) => !p.unlocked && p.unlockRank > 0);
   if (locked) {
     const r = await ev(async (i) => {
-      const { MainMenuManager } = await import('/src/uiscripts/home.js');
+      const { MainMenuManager } = await __mod('/src/uiscripts/home.js');
       const mm = MainMenuManager.Instance;
       const before = mm.currentMenu?.index;
       mm.DoMenuSwitch(mm.switchers[i]);
@@ -65,7 +65,7 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- currencies on the top bar
   const cur = await ev(async () => {
-    const { Currencies } = await import('/src/meta/currency.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
     Currencies.Soft.Gain(5000, 'qa');
     Currencies.Hard.Gain(300, 'qa');
     await new Promise((r) => setTimeout(r, 2500));
@@ -81,8 +81,8 @@ export default async (h) => {
   const rk = { ups: [], popups: 0 };
   for (let n = 0; n < 8; n++) {
     const r = await ev(async () => {
-      const { PlayerRank } = await import('/src/meta/rank.js');
-      const { Currencies } = await import('/src/meta/currency.js');
+      const { PlayerRank } = await __mod('/src/meta/rank.js');
+      const { Currencies } = await __mod('/src/meta/currency.js');
       const before = { rank: PlayerRank.CurrentRank, soft: Currencies.Soft.value, hard: Currencies.Hard.value };
       const need = PlayerRank.CurrentStarsRequired - PlayerRank.CurrentRankStars;
       PlayerRank.AddStars(need);
@@ -101,14 +101,14 @@ export default async (h) => {
   const trackLines = rk.ups.filter((u) => u.granted.length).map((u) => `rank ${u.to}: ${u.granted.join(', ')}`);
   result('META-03', trackLines.length ? 'pass' : 'fail', `Phần thưởng rank track được nhận tự động khi lên rank: ${trackLines.join('; ')}.`);
   const pages2 = await ev(async () => {
-    const { MainMenuManager } = await import('/src/uiscripts/home.js');
+    const { MainMenuManager } = await __mod('/src/uiscripts/home.js');
     return MainMenuManager.Instance.switchers.map((s) => s.IsUnlocked());
   });
   info('pagesUnlockedAfterRank', pages2);
 
   const goto = async (name, shot) => {
     const ok = await ev(async (name) => {
-      const { MainMenuManager } = await import('/src/uiscripts/home.js');
+      const { MainMenuManager } = await __mod('/src/uiscripts/home.js');
       const mm = MainMenuManager.Instance;
       const s = mm.switchers.find((x) => (x.menuScreen?.gameObject?.name || x.menuButton?.gameObject?.name || '').toLowerCase().includes(name));
       if (!s) return 'missing';
@@ -132,8 +132,8 @@ export default async (h) => {
 
   // chest bought with currency
   const chest = await ev(async () => {
-    const { Currencies } = await import('/src/meta/currency.js');
-    const { LootboxService } = await import('/src/meta/lootbox.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
+    const { LootboxService } = await __mod('/src/meta/lootbox.js');
     const items = window.__q.all('LootboxShopItem').filter((b) => b.gameObject.activeInHierarchy);
     const it = items.find((b) => b.Settings?.PaymentDefinition?.pay === 4) || null;
     if (!it) return { none: true, n: items.length };
@@ -165,7 +165,7 @@ export default async (h) => {
 
   // daily gift
   const gift = await ev(async () => {
-    const { Currencies } = await import('/src/meta/currency.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
     const it = window.__q.all('HardCurrencyShopGiftItem').find((b) => !b.gameObject._destroyed);
     if (!it) return { none: true };
     const can = it.settings.CanClaimGift;
@@ -189,8 +189,8 @@ export default async (h) => {
 
   // daily deals
   const deal = await ev(async () => {
-    const { Currencies } = await import('/src/meta/currency.js');
-    const { CardService } = await import('/src/meta/cards.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
+    const { CardService } = await __mod('/src/meta/cards.js');
     const items = window.__q.all('DailyDealShopItem').filter((b) => !b.gameObject._destroyed);
     const it = items.find((b) => b.Settings?.CanBuySlot?.());
     if (!it) return { none: true, n: items.length };
@@ -214,8 +214,8 @@ export default async (h) => {
 
   // RV reward track: its ad button until the first step is reached, then the claim button of the reward cell
   const rv = await ev(async () => {
-    const { Shop } = await import('/src/meta/shop.js');
-    const { Currencies } = await import('/src/meta/currency.js');
+    const { Shop } = await __mod('/src/meta/shop.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
     const t = Shop.rvTrack;
     const ui = window.__q.all('UI_RVRewardTrack').find((b) => b.gameObject.activeInHierarchy);
     if (!ui) return { none: true };
@@ -247,16 +247,24 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- lootbox opening on Home
   await goto('home');
+  await ev(() => {
+    // Rank progression above can auto-open these original menu overlays. Close
+    // them through their real components so the queued chest opener is no longer
+    // blocked by MainMenuManager.IsBusy.
+    for (const c of window.__q.active('UI_ChallengeOverlay')) c.TryClose?.();
+    for (const r of window.__q.active('UI_RewardTrack')) r.Close?.();
+  });
+  await h.sleep(1200);
   const lb0 = await ev(async () => {
-    const { LootboxService } = await import('/src/meta/lootbox.js');
-    const { CardService } = await import('/src/meta/cards.js');
+    const { LootboxService } = await __mod('/src/meta/lootbox.js');
+    const { CardService } = await __mod('/src/meta/cards.js');
     return { queued: LootboxService.inbox.length, cards: [...CardService.cards.values()].reduce((a, c) => a + (c.Total || 0), 0) };
   });
   // tap the chest open; the "quality increased" offer waits for LOSE IT (bottom left), the overview for CLAIM
   let sawAnim = false, sawOverview = false;
   for (let i = 0; i < 120; i++) {
     const s = await ev(async () => {
-      const { LootboxService } = await import('/src/meta/lootbox.js');
+      const { LootboxService } = await __mod('/src/meta/lootbox.js');
       return { anim: window.__q.active('UI_LootboxOpenAnimation').length, overview: window.__q.active('UI_LootboxCollectionOverview').length, q: LootboxService.inbox.length };
     });
     if (s.anim) {
@@ -268,17 +276,21 @@ export default async (h) => {
       if (s.overview) {
         if (!sawOverview) await h.shot('m3-lootbox-overview');
         sawOverview = true;
-        await h.page.mouse.click(640, 657);
+        await ev(() => window.__q.active('UI_LootboxCollectionOverview')[0]?.claimButton?.Press());
       } else {
-        await h.page.mouse.click(640, 420);
-        if (i % 3 === 0) await h.page.mouse.click(320, 657);
+        await ev(() => {
+          const a = window.__q.active('UI_LootboxOpenAnimation')[0];
+          if (!a) return;
+          if (a.loseRvButton?.gameObject.activeInHierarchy) a.loseRvButton.Press();
+          else a.backgroundBtn?.Press();
+        });
       }
     } else if (sawAnim && s.q === 0) break;
     await h.sleep(500);
   }
   const lb1 = await ev(async () => {
-    const { LootboxService } = await import('/src/meta/lootbox.js');
-    const { CardService } = await import('/src/meta/cards.js');
+    const { LootboxService } = await __mod('/src/meta/lootbox.js');
+    const { CardService } = await __mod('/src/meta/cards.js');
     return { queued: LootboxService.inbox.length, cards: [...CardService.cards.values()].reduce((a, c) => a + (c.Total || 0), 0) };
   });
   await h.shot('m3-lootbox-after');
@@ -287,8 +299,8 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- daily lootbox
   const daily = await ev(async () => {
-    const { DailyLootbox, LootboxService } = await import('/src/meta/lootbox.js');
-    const { Save } = await import('/src/meta/save.js');
+    const { DailyLootbox, LootboxService } = await __mod('/src/meta/lootbox.js');
+    const { Save } = await __mod('/src/meta/save.js');
     const s = Save.data.dailyLootbox;
     s.xp = 40;
     s.day -= 86400000; // pretend yesterday
@@ -306,8 +318,8 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- bonus letters
   const bonus = await ev(async () => {
-    const { Bonus } = await import('/src/meta/bonus.js');
-    const { Currencies } = await import('/src/meta/currency.js');
+    const { Bonus } = await __mod('/src/meta/bonus.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
     Currencies.Bonus.Gain(5 - Currencies.Bonus.value, 'qa');
     const s0 = Currencies.Soft.value;
     const all = Bonus.CollectedAll;
@@ -320,9 +332,9 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- challenges
   const ch = await ev(async () => {
-    const { ChallengeManager } = await import('/src/meta/challenges.js');
-    const { PlayerRank } = await import('/src/meta/rank.js');
-    const { Currencies } = await import('/src/meta/currency.js');
+    const { ChallengeManager } = await __mod('/src/meta/challenges.js');
+    const { PlayerRank } = await __mod('/src/meta/rank.js');
+    const { Currencies } = await __mod('/src/meta/currency.js');
     ChallengeManager.UpdateChallengeSlots();
     const slots = ChallengeManager.Slotted.map((c) => ({ id: c.id, text: c.Text, state: c.State, cur: c.CurrentValue, goal: c.GoalValue }));
     const c = ChallengeManager.Slotted.find((x) => x.IsActive);
@@ -342,7 +354,7 @@ export default async (h) => {
   const gNav = await goto('meta', 'm3-garage');
   info('garageNav', gNav);
   const gar = await ev(async () => {
-    const { CardService, CardType } = await import('/src/meta/cards.js');
+    const { CardService, CardType } = await __mod('/src/meta/cards.js');
     const types = { Vehicle: CardType.Vehicle, Color: CardType.VehicleColor, Trail: CardType.VehicleTrail, Death: CardType.VehicleDeath, Landing: CardType.VehicleLanding };
     const out = {};
     const uiCards = window.__q.all('UI_MetaCard').filter((b) => !b.gameObject._destroyed);
@@ -376,7 +388,7 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- card rank up
   const cardUp = await ev(async () => {
-    const { CardService, CardType } = await import('/src/meta/cards.js');
+    const { CardService, CardType } = await __mod('/src/meta/cards.js');
     const c = CardService.ofType(CardType.Vehicle).find((x) => !x.IsLocked && !x.IsMaxedOut);
     if (!c) return { none: true };
     const r0 = c.CurrentRank, t0 = c.Total;
@@ -389,8 +401,8 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- world unlock + stats
   const w = await ev(async () => {
-    const { WorldManager } = await import('/src/meta/worlds.js');
-    const { PlayerRank } = await import('/src/meta/rank.js');
+    const { WorldManager } = await __mod('/src/meta/worlds.js');
+    const { PlayerRank } = await __mod('/src/meta/rank.js');
     return { rank: PlayerRank.CurrentRank, w2: WorldManager.IsWorldUnlocked(1), w3: WorldManager.IsWorldUnlocked(2), need2: PlayerRank.GetRankForWorldUnlock(1), need3: PlayerRank.GetRankForWorldUnlock(2) };
   });
   info('worlds', w);

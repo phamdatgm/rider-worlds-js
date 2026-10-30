@@ -4,7 +4,7 @@
 import { copyrightText } from './sdk/copyright.js';
 import { t } from './sdk/i18n.js';
 import { createLeaderboard } from './sdk/leaderboard/leaderboard.js';
-import { openLeaderboard } from './sdk/leaderboard/ui.js';
+import { openLeaderboard } from './ui2/leaderboard.js';
 import { Assets, getPrefabJson } from './engine/assets.js';
 import { Instantiate } from './engine/instantiate.js';
 import { LoopHooks } from './engine/loop.js';
@@ -134,6 +134,8 @@ function addLeaderboardButton(menuRoot) {
   const scoreGroup = score?.GetComponent('CanvasGroup');
   const group = go.GetComponent('CanvasGroup');
   return () => {
+    // the landscape layout (src/ui2/layout.js) places the button with the Home launchers and shows it itself
+    if (group._ui2Owned?.()) return;
     const a = score?.activeInHierarchy ? scoreGroup?.alpha ?? 1 : 0;
     group.alpha = a;
     group.interactable = group.blocksRaycasts = a > 0.5;

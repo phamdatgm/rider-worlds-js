@@ -1,7 +1,8 @@
 // A compact CPU implementation of Unity's Shuriken ParticleSystem covering the modules the game uses:
 // main (lifetime/speed/size/color/rotation/gravity, 3D size/rotation), emission (rate over time/distance, bursts),
 // shape (sphere/hemisphere/cone/box/circle/edge), velocity/force/size/color/rotation over lifetime,
-// limit velocity (+ drag), noise, texture sheet animation and trails (per particle and ribbon).
+// limit velocity (+ drag), noise, texture sheet animation, trails (per particle and ribbon) and custom data (through
+// the renderer's custom vertex streams).
 // Particles are camera-facing quads in the XY plane (the gameplay camera never rotates).
 import * as THREE from 'three';
 import { Behaviour, Destroy, World } from './scene.js';
@@ -625,6 +626,7 @@ export class ParticleSystem extends Behaviour {
       if (!src) return null;
       const geo = src.clone();
       geo.setAttribute('color', new THREE.InstancedBufferAttribute(new Float32Array(n * 4).fill(1), 4).setUsage(THREE.DynamicDrawUsage));
+      if (r.uv1Streams) geo.setAttribute('uv1', new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4).setUsage(THREE.DynamicDrawUsage));
       const ref = (r._materialRefs || [])[0];
       const mat = ref ? getMaterial(ref, true) : new THREE.MeshBasicMaterial();
       this.mesh = new THREE.InstancedMesh(geo, mat, n);
@@ -642,6 +644,7 @@ export class ParticleSystem extends Behaviour {
     geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 4 * 2), 2).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 4 * 4), 4).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 4 * 3).map((_, i) => (i % 3 === 2 ? 1 : 0)), 3));
+    if (r.uv1Streams) geo.setAttribute('uv1', new THREE.BufferAttribute(new Float32Array(n * 4 * 4), 4).setUsage(THREE.DynamicDrawUsage));
     const idx = new Uint16Array(n * 6);
     for (let i = 0; i < n; i++) idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
@@ -686,6 +689,13 @@ export class ParticleSystem extends Behaviour {
         out[2] *= sx;
       }
     }
+    return out;
+  }
+
+  /** the custom vertex streams reaching uv1 (TEXCOORD1) for a particle, into out */
+  _particleUv1(q, t, sz, out) {
+    const st = this.renderer.uv1Streams;
+    for (let k = 0; k < 4; k++) out[k] = st[k] ? streamValue(this, q, st[k][0], st[k][1], t, sz) : 0;
     return out;
   }
 
@@ -738,6 +748,7 @@ export class ParticleSystem extends Behaviour {
     const pos = mesh.geometry.attributes.position.array;
     const col = mesh.geometry.attributes.color.array;
     const uvs = mesh.geometry.attributes.uv.array;
+    const uv1 = mesh.geometry.attributes.uv1;
     const c = [1, 1, 1, 1];
     const sz = [1, 1, 1];
     // quad axes: camera right/up for view-aligned particles, the system's local X/Y otherwise
@@ -808,8 +819,13 @@ export class ParticleSystem extends Behaviour {
       uvs.set([uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], n * 8);
       this._particleColor(q, t, c);
       for (let k = 0; k < 4; k++) col.set(c, n * 16 + k * 4);
+      if (uv1) {
+        this._particleUv1(q, t, sz, c);
+        for (let k = 0; k < 4; k++) uv1.array.set(c, n * 16 + k * 4);
+      }
       n++;
     }
+    if (uv1) uv1.needsUpdate = true;
     mesh.geometry.attributes.position.needsUpdate = true;
     mesh.geometry.attributes.color.needsUpdate = true;
     mesh.geometry.attributes.uv.needsUpdate = true;
@@ -818,6 +834,7 @@ export class ParticleSystem extends Behaviour {
 
   _renderInstances(mesh, frame) {
     const col = mesh.geometry.attributes.color;
+    const uv1 = mesh.geometry.attributes.uv1?.isInstancedBufferAttribute ? mesh.geometry.attributes.uv1 : null;
     const c = [1, 1, 1, 1];
     const sz = [1, 1, 1];
     const sim = frame?.sim;
@@ -843,11 +860,13 @@ export class ParticleSystem extends Behaviour {
       mesh.setMatrixAt(n, _im);
       this._particleColor(q, t, c);
       col.array.set(c, n * 4);
+      if (uv1) uv1.array.set(this._particleUv1(q, t, sz, c), n * 4);
       n++;
     }
     mesh.count = n;
     mesh.instanceMatrix.needsUpdate = true;
     col.needsUpdate = true;
+    if (uv1) uv1.needsUpdate = true;
   }
 
   // ---- trails: ParticleSystemRenderer trail material (m_Materials[1]), camera-facing strips
@@ -905,7 +924,8 @@ export class ParticleSystem extends Behaviour {
       for (let rb = 0; rb < ribbons; rb++) {
         const list = sorted.filter((_, i) => i % ribbons === rb);
         if (list.length < 2) continue;
-        const s = { pts: [], w: [], c: [] };
+        // the newest particle (the end of the list) is the ribbon's head
+        const s = { pts: [], w: [], c: [], headLast: true };
         list.forEach((q, i) => {
           const u = i / (list.length - 1);
           const t = q.age / q.life;
@@ -970,12 +990,27 @@ export class ParticleSystem extends Behaviour {
     const uv = geo.attributes.uv.array;
     const col = geo.attributes.color.array;
     const idx = geo.index.array;
+    // TrailModule.textureMode: Stretch (0) and DistributePerSegment (2) map the texture once over the trail, Tile (1)
+    // repeats it once per world unit from the head (the material's tiling scales it), RepeatPerSegment (3) once per
+    // segment
+    const texMode = this.d.TrailModule?.textureMode || 0;
+    const us = [];
     let v = 0;
     let ii = 0;
     for (const s of strips) {
       const n = s.pts.length;
       const v0 = v;
       const pts = s.pts.map(W);
+      if (texMode === 1 || texMode === 3) {
+        const head = s.headLast ? n - 1 : 0;
+        const step = s.headLast ? -1 : 1;
+        us[head] = 0;
+        for (let i = head + step; i >= 0 && i < n; i += step) {
+          const a = pts[i];
+          const b = pts[i - step];
+          us[i] = us[i - step] + (texMode === 3 ? 1 : Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
+        }
+      }
       for (let i = 0; i < n; i++) {
         const p = pts[i];
         const a = pts[Math.max(0, i - 1)];
@@ -994,8 +1029,7 @@ export class ParticleSystem extends Behaviour {
         const oy = (-ty * _cr.y + tx * _cu.y) * hw;
         const oz = (-ty * _cr.z + tx * _cu.z) * hw;
         pos.set([p.x + ox, p.y + oy, p.z + oz, p.x - ox, p.y - oy, p.z - oz], v * 3);
-        // TrailTextureMode.Stretch: u runs along the whole trail
-        const u = i / (n - 1);
+        const u = texMode === 1 || texMode === 3 ? us[i] : i / (n - 1);
         uv.set([u, 1, u, 0], v * 2);
         col.set(s.c[i], v * 4);
         col.set(s.c[i], v * 4 + 4);
@@ -1037,6 +1071,66 @@ const _ie = new THREE.Euler();
 const _is = new THREE.Vector3();
 const _ip = new THREE.Vector3();
 
+// ---- custom vertex streams. Unity packs the streams other than Position/Normal/Tangent/Color into TEXCOORD0..n,
+// four floats each, in list order, a stream spilling over into the next TEXCOORD (Custom1.xyzw after UV lands in
+// TEXCOORD0.zw|TEXCOORD1.xy). The shaders read TEXCOORD1 as uv1 (dissolve threshold, offsets, distortion amount).
+
+/** ParticleSystemVertexStream -> float count in the TEXCOORDs (0 for the streams with semantics of their own) */
+function streamSize(s) {
+  if (s <= 3) return 0; // Position, Normal, Tangent, Color
+  if (s <= 7) return 2; // UV..UV4
+  if (s >= 23 && s <= 38) return ((s - 23) % 4) + 1; // StableRandom, VaryingRandom, Custom1, Custom2 X..XYZW
+  if (s >= 39 && s <= 44) return ((s - 39) % 3) + 1; // NoiseSum, NoiseImpulse X..XYZ
+  return { 10: 3, 13: 2, 14: 3, 16: 3, 18: 3, 19: 3, 47: 2 }[s] ?? 1;
+}
+
+/** m_VertexStreams (hex bytes) -> the [stream, component] feeding uv1.x..w, or null when nothing reaches TEXCOORD1 */
+function uv1Streams(hex) {
+  if (typeof hex !== 'string') return null;
+  const out = [null, null, null, null];
+  let at = 0;
+  for (let i = 0; i + 1 < hex.length; i += 2) {
+    const s = parseInt(hex.slice(i, i + 2), 16);
+    const n = streamSize(s);
+    for (let k = 0; k < n; k++, at++) if (at >= 4 && at < 8) out[at - 4] = [s, k];
+  }
+  return out.some(Boolean) ? out : null;
+}
+
+const _cd = [0, 0, 0, 0];
+/** CustomDataModule stream `i` (0 Custom1, 1 Custom2) component `k` of a particle at normalized age t */
+function customData(ps, q, i, k, t) {
+  const cd = ps.d.CustomDataModule;
+  if (!cd?.enabled) return 0;
+  q.cr ||= [rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd()];
+  switch (cd[`mode${i}`]) {
+    case 1: // Vector
+      return k < (cd[`vectorComponentCount${i}`] ?? 4) ? evalCurve(cd[`vector${i}_${k}`], t, q.cr[i * 4 + k]) : 0;
+    case 2: // Color
+      return evalGradient(cd[`color${i}`], t, q.cr[i * 4], _cd)[k];
+    default:
+      return 0;
+  }
+}
+
+/** value of vertex stream `s`, component `k`, for a particle at normalized age t with size sz */
+function streamValue(ps, q, s, k, t, sz) {
+  if (s >= 31 && s <= 34) return customData(ps, q, 0, k, t);
+  if (s >= 35 && s <= 38) return customData(ps, q, 1, k, t);
+  if (s >= 23 && s <= 26) return (q.sr ||= [rnd(), rnd(), rnd(), rnd()])[k];
+  if (s >= 27 && s <= 30) return rnd();
+  switch (s) {
+    case 10: return q.p.getComponent(k); // Center (simulation space)
+    case 12: case 13: case 14: return sz[k];
+    case 15: return q.rot || 0;
+    case 19: return q.vt.getComponent(k);
+    case 20: return q.vt.length();
+    case 21: return t; // AgeLifetime
+    case 22: return 1 / q.life; // InvStartLifetime
+    default: return 0;
+  }
+}
+
 export class ParticleSystemRenderer extends Behaviour {
   static typeName = 'ParticleSystemRenderer';
 
@@ -1050,6 +1144,7 @@ export class ParticleSystemRenderer extends Behaviour {
     r.maxParticleSize = d.m_MaxParticleSize ?? 0.5;
     r.sortingOrder = d.m_SortingOrder || 0;
     r.renderAlignment = d.m_RenderAlignment || 0; // View, World, Local, Facing, Velocity
+    r.uv1Streams = d.m_UseCustomVertexStreams ? uv1Streams(d.m_VertexStreams) : null;
   }
 
   _activate() {

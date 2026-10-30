@@ -21,12 +21,23 @@ export const WorldManager = {
     return Meta.data.worlds.length;
   },
 
+  /** last playable world: trailing "coming soon" worlds are not offered (the game ships with two worlds) */
   get HighestWorldIndex() {
-    return this.count - 1;
+    let n = this.count - 1;
+    while (n > 0 && this.IsWorldComingSoon(n)) n--;
+    return n;
   },
 
   get CurrentWorldIndex() {
     return Save.data.world.selected || 0;
+  },
+
+  /** a locked world being browsed (the UI sets it; -1: none). Runs never start there, but its vehicles are shown. */
+  BrowsedWorldIndex: -1,
+
+  /** the world whose equipped cards are shown: a browsed locked world, else the current world */
+  get ShownWorldIndex() {
+    return this.BrowsedWorldIndex >= 0 ? this.BrowsedWorldIndex : this.CurrentWorldIndex;
   },
 
   HighestUnlockedWorld() {

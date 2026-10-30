@@ -11,7 +11,7 @@ import { RunState, DeathReason } from '../game/state.js';
 import { TimedLevelMode as GameTimedLevelMode } from '../game/game.js';
 import { Color } from '../ugui/graphic.js';
 import { DOTween } from '../ugui/tween.js';
-import { ev } from './common.js';
+import { ev, playFeedbacksAtOnce } from './common.js';
 import { AudioSampleID, WorldManager, SettingsContainer, TimedLevelModeController, RankTrack, UnlockTypeEnum, UnlockRewardAsset } from './services.js';
 import { TimedLevelModeID, getSceneSwitcher, getMenuState } from './scenes.js';
 import { MainMenuManager } from './home.js';
@@ -711,36 +711,27 @@ export class UI_TimedLevelMenu extends MonoBehaviour {
   TryOpen() {
     if (this._co) return false;
     this.gameObject.SetActive(true);
+    // opens at once (owner's request): the transition lands on its end state instead of playing over 0.5 s
     if (this.transitionFeedbackIn) {
       this.transitionFeedbackIn.Initialization();
-      this.transitionFeedbackIn.PlayFeedbacks();
+      playFeedbacksAtOnce(this.transitionFeedbackIn);
     }
-    this._co = this.StartCoroutine(this.WaitForOpen());
     getMenuState().isLevelScreenOpen = true;
     this.OnOpen.Invoke();
     return true;
   }
 
+  // closes at once (owner's request) instead of playing transitionFeedbackOut (0.5 s) and the tweens backwards; the
+  // feedback still lands on its end state, for what it restores outside the screen
   TryClose() {
     if (this._co || !this.isActiveAndEnabled) return false;
-    this.transitionFeedbackOut?.PlayFeedbacks();
+    playFeedbacksAtOnce(this.transitionFeedbackOut);
     Render.hideWorld = false;
-    for (const a of this.GetComponentsInChildren('DOTweenAnimation')) a.DOPlayBackwards();
-    this._co = this.StartCoroutine(this.WaitForClose());
+    for (const a of this.GetComponentsInChildren('DOTweenAnimation')) a.DORewind();
     getMenuState().isLevelScreenOpen = false;
     this.OnClose.Invoke();
-    return true;
-  }
-
-  *WaitForOpen() {
-    if (this.transitionFeedbackIn) yield new WaitForSeconds(this.transitionFeedbackIn.TotalDuration);
-    this._co = null;
-  }
-
-  *WaitForClose() {
-    if (this.transitionFeedbackOut) yield new WaitForSeconds(this.transitionFeedbackOut.TotalDuration);
-    this._co = null;
     this.gameObject.SetActive(false);
+    return true;
   }
 
   OpenPage(i) {

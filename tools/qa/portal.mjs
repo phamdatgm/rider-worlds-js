@@ -36,7 +36,7 @@ export default async function (h) {
   await h.sleep(1500);
 
   // Settings footer: V<version> of game.json + the kit's copyright line
-  const footer = await h.eval(async () => (await import('/src/portal.js')).footerText());
+  const footer = await h.eval(async () => (await __mod('/src/portal.js')).footerText());
   const version = JSON.parse(fs.readFileSync('public/game.json', 'utf8')).version;
   check('FOOTER', footer === `V${version}\n© 2026 Azgames.io`, JSON.stringify(footer));
 
@@ -67,14 +67,14 @@ export default async function (h) {
   // run_end interstitial: never after the first run of the session, then the SDK's spacing decides
   const before = tracked.filter((t) => t.startsWith('ad_interstitial')).length;
   await h.eval(async () => {
-    const { Ads } = await import('/src/ads.js');
+    const { Ads } = await __mod('/src/ads.js');
     Ads.runEnded(false);
   });
   await h.sleep(2000);
   const afterFirst = tracked.filter((t) => t.startsWith('ad_interstitial')).length;
   check('INTER-FIRST-RUN', afterFirst === before, 'no interstitial after the first run');
   await h.eval(async () => {
-    const { Ads } = await import('/src/ads.js');
+    const { Ads } = await __mod('/src/ads.js');
     Ads.runEnded(false);
   });
   // the SDK sends ad_interstitial when the ad is over, which Google's test ad never is headless: judged on the pause
@@ -96,7 +96,7 @@ export default async function (h) {
   check('RV-AVAILABLE', available, `rewardedAvailable ${available}`);
   if (available) {
     await h.eval(async () => {
-      const { Ads } = await import('/src/ads.js');
+      const { Ads } = await __mod('/src/ads.js');
       window.__rv = 'pending';
       Ads.rewarded('qa_test').then((r) => (window.__rv = r));
     });

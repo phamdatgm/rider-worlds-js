@@ -1,0 +1,23 @@
+# Rider Worlds — theo dõi làm lại UI. Mỗi màn một dòng: trạng thái  số  tên  loại  scene  object gốc  bố cục
+# [ ] chưa làm   [~] đang làm (đã có spec, chờ dựng)   [x] xong   [-] bỏ / giữ nguyên   [?] cần quyết định
+# Cột cách nhau bằng 2 dấu cách trở lên. Dựng lại trang: node docs/ui/ui_index.mjs --html
+# Bố cục: concept đã chọn ngày 2026-10-27 (docs/ui/final/, docs/ui/UI_SPEC.md)
+
+[-] 01  Loading  Màn hình  kit SDK  #gmLoader (public/loader.js, public/icons/)  giữ mặc định của kit
+[x] 02  Transition  Màn chuyển  CoreUI  Transition Screen  B
+[x] 03  Home  Màn hình  Menu  Main Menu/UI Container (Home Screen, TopContainer, BottomButtonContainer)  ảnh mẫu
+[x] 04  Challenges  Popup  Menu  Home Screen/ChallengeOverlay  A (+ popup bỏ qua: A)
+[x] 05  Levels  Màn hình  Menu  Home Screen/Timed Level Overlay  A (✕ góc trên, mũi tên + Total ở đáy khung)
+[x] 06  World Stats  Màn hình  Menu  Home Screen/WorldStatsScreen  A (✕ góc trên)
+[x] 07  Reward Track  Màn hình  Menu  UI Container/PopUps/RewardTrack  A (✕ góc trên)
+[x] 08  Garage  Màn hình  Menu  PageContainer/Meta Screen  B
+[x] 09  Shop  Màn hình  Menu  PageContainer/Shop Screen  A (+ popup xác nhận: C)
+[x] 10  Settings  Popup  Menu  UI Container/Settings (UI_PauseMenu)  A
+[x] 11  Leaderboard  Popup  kit SDK  src/sdk/leaderboard (DOM)  A (+ Name & flag: A)
+[x] 12  Rank Up  Popup  prefab  RankupPopup  A
+[x] 13  Claim Bonus  Popup  prefab  ClaimBonusOverlay  A, nút xếp như B
+[x] 14  Lootbox  Màn hình  prefab  PopUps/LootboxOpener + LootboxOpenAnimation  C (+ lật card: C)
+[x] 15  HUD  HUD  HUD  HUD/UI Container/HUD TopContainer  A
+[x] 16  Pause  Popup  HUD  HUD/UI Container/Pause (UI_PauseMenu)  A
+[x] 17  Tutorial  Lớp phủ  CoreUI  TutorialUtility/TutorialCanvas  C
+[x] 18  Revive  Popup  prefab  Revive Screen  A

@@ -954,7 +954,12 @@ export class BaseShopController extends MonoBehaviour {
 
   UpdateSections() {
     // UI_ShopPage.Initialize runs while the Shop Screen is still inactive; the shipped build finds its sections
-    this.sections = this.GetComponentsInChildren(BaseShopSection, true);
+    this.sections = this.GetComponentsInChildren(BaseShopSection, true).filter((s) => {
+      // owner's request: no rubies section (daily gift + IAP packs) in the web build
+      if (!(s instanceof HardCurrencyShopSection)) return true;
+      s.gameObject.SetActive(false);
+      return false;
+    });
   }
 
   /** IShop.SortSectionsUsing(ShopRemoteSettings) */
@@ -2478,9 +2483,8 @@ export function ShopPingsCount() {
     if (page.lootboxSection.CanGetLargeLootbox()) n++;
   }
   const dd = page?.shop?.sections?.find((s) => s instanceof DailyDealShopSection)?.settings;
-  n += dd?.HasFree() ? 1 : 0;
-  const gift = page?.shop?.sections?.find((s) => s instanceof HardCurrencyShopSection)?.hardCurrencyShopGiftSettings;
-  return n + (gift?.CanClaimGift ? 1 : 0);
+  // the rubies gift has no section in the web build (BaseShopController.UpdateSections)
+  return n + (dd?.HasFree() ? 1 : 0);
 }
 
 for (const cls of [

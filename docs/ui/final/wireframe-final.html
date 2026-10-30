@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rider Worlds Final UI</title>
+<style>
+:root { --bg: #0f1117; --panel: #181b24; --line: #2a2f3d; --text: #e6e8ef; --muted: #9aa0b2; --accent: #c86bff; --ok: #22c55e; --bad: #ef4444; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 "Segoe UI", system-ui, sans-serif; }
+main { max-width: 1340px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { margin: 0 0 4px; font-size: 26px; }
+h2 { margin: 40px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 20px; }
+a { color: var(--accent); }
+.sub { color: var(--muted); margin: 0 0 12px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+nav.toc a { padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; background: var(--panel); font-size: 13px; }
+.frame { max-width: 1280px; }
+.frame svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; }
+body.export main { max-width: none; padding: 0; }
+body.export .frame { width: 1280px; }
+body.export .frame svg { border: 0; border-radius: 0; }
+.check { font-size: 13px; margin: 4px 0; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 13px; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.wrap { overflow-x: auto; }
+code { font: 12px Consolas, monospace; background: #232736; padding: 1px 5px; border-radius: 4px; }
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 4px; background: #3b2a00; color: #f5b000; margin-left: 4px; }
+details { margin: 0 0 12px; } summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Rider Worlds — UI final (Giai đoạn 3)</h1>
+<p class="sub">Bố cục người dùng đã chọn cho từng màn. Toạ độ design 1280×720, cỡ chữ đã nâng tối thiểu 15. Spec: <code>docs/ui/UI_SPEC.md</code>; PNG: <code>docs/ui/final/NN-*.png</code> (<code>node docs/ui/final/build.mjs</code>). <a href="../wireframes.html">3 concept</a> · <a href="../index.html">danh sách màn</a></p>
+<div id="out"></div>
+</main>
+<script>globalThis.MIN_FS = 15;</script>
+<script src="../wf-data.js"></script>
+<script>
+// the concept the user picked per screen (2026-10-27); 13 is concept A with the buttons stacked as in concept B
+const PICK = { '02': 'B', '04': 'A', '04b': 'A', '05': 'A', '06': 'A', '07': 'A', '08': 'B', '09': 'A', '09b': 'C', '10': 'A', '11': 'A', '11b': 'A', '12': 'A', '13': 'A+B', '14': 'C', '14b': 'C', '15': 'A', '16': 'A', '17': 'C', '18': 'A' };
+const SLUG = { '03': 'home', '02': 'transition', '04': 'challenges', '04b': 'challenge-skip', '05': 'levels', '06': 'world-stats', '07': 'reward-track', '08': 'garage', '09': 'shop', '09b': 'shop-confirm', '10': 'settings', '11': 'leaderboard', '11b': 'leaderboard-profile', '12': 'rank-up', '13': 'claim-bonus', '14': 'lootbox', '14b': 'lootbox-cards', '15': 'hud', '16': 'pause', '17': 'tutorial', '18': 'revive' };
+L['13'] = (c) => c !== 'A+B' ? null : [...BEHIND(), E(null, 'cham', 460, 130, 360, 420, '', { c: 'y' }), E('cb.title', 'text', 460, 142, 360, 40, 'CLAIM BONUS REWARD', { fs: 20 }), E('cb.icon', 'rect', 560, 190, 160, 140, '◆◆◆', { fs: 40 }), E('cb.amount', 'text', 460, 336, 360, 34, '+400 Gems', { fs: 20 }), E('cb.rv', 'cham', 490, 384, 300, 54, '📺 X2 GEMS', { c: 'y', fs: 18 }), E('cb.claim', 'cham', 490, 452, 300, 54, 'CLAIM', { fs: 18 })];
+// 05: concept A, the close on the panel's top-right corner (as Settings); the panel reaches y 630 and its bottom row
+// holds the page arrows (left / right corners) and the total stars (centre), the locked-page indicator centred above
+// them (user's marked screenshot, 2026-10-27)
+PICK['05'] = 'A2';
+L['05'] = ((base) => (c) => {
+  if (c !== 'A2') return base(c);
+  const items = [];
+  for (let i = 0; i < 8; i++) items.push(...lvItem(i < 4 ? 240 : 660, 205 + (i % 4) * 66, 380, 56, i + 1, i ? null : 'l.item'));
+  return [...TOPONLY(), E('l.bg', 'ghost', 190, 130, 900, 500, ''), E(null, 'cham', 190, 130, 900, 500), E('l.title', 'text', 280, 140, 720, 50, 'EASY LEVELS', { fs: 28 }), E('l.close', 'hex', 1056, 110, 56, 48, '✕', { fs: 20 }),
+    ...items, E('l.locked', 'state', 490, 476, 300, 46, '★ 12 (trang khoá)'),
+    E('l.arrowL', 'hex', 226, 546, 60, 52, '«', { fs: 28 }), E('l.total', 'pill', 550, 550, 180, 46, 'Total ★ 0/24', { fs: 17 }), E('l.arrowR', 'hex', 994, 546, 60, 52, '»', { fs: 28 }), E('l.badge', 'badge', 1040, 536, 26, 26, '!')];
+})(L['05']);
+// 06: concept A with the close on the panel's top-right corner, as Settings (user, 2026-10-27)
+PICK['06'] = 'A2';
+L['06'] = ((base) => (c) => (c !== 'A2' ? base(c) : base('A').map((e) => (e.id === 's.close' ? E('s.close', 'hex', 1006, 104, 56, 48, '✕', { fs: 20 }) : e))))(L['06']);
+// 07: concept A with the close at the top-right of the header band (the screen has no panel; user, 2026-10-27)
+PICK['07'] = 'A2';
+L['07'] = ((base) => (c) => (c !== 'A2' ? base(c) : base('A').map((e) => (e.id === 'r.close' ? E('r.close', 'hex', 1200, 34, 56, 48, '✕', { fs: 20 }) : e))))(L['07']);
+// every popup sits on a black shade covering everything behind it, the top bar included (user, 2026-10-27):
+// the background of the screen (its first `n` elements) loses its own dims and gets one black 65 % shade on top
+const SHADE_OP = 0.65;
+const BACKGROUND = { '04': () => BEHIND().length, '04b': () => BEHIND().length, '10': () => BEHIND().length, '11': () => BEHIND().length, '11b': () => BEHIND().length, '13': () => BEHIND().length, '05': () => TOPONLY().length, '06': () => TOPONLY().length, '07': () => 2, '09b': () => 3, '16': () => RUN().length + 1, '18': () => RUN().length + 1 };
+const shaded = (sid, els) => {
+  if (!BACKGROUND[sid]) return els;
+  const n = BACKGROUND[sid]();
+  return [...els.slice(0, n).filter((e) => e.s !== 'dim'), E(null, 'dim', 0, 0, 1280, 720, '', { op: SHADE_OP, black: true }), ...els.slice(n)];
+};
+/** anchors of the elements that follow a viewport edge (wide screens); every other element follows the centred canvas */
+const EDGE = { 'h.gem': 'top-left', 'h.ruby': 'top-left', 'h.rank': 'top-right', 'h.starbar': 'top-right', 'h.bonus': 'top-right', 'h.settings': 'top-right', 't.shop': 'bottom', 't.veh': 'bottom', 't.world': 'bottom', 't.chal': 'bottom', 't.lvl': 'bottom', 'b.shop': 'bottom', 'b.veh': 'bottom', 'b.chal': 'bottom', 'b.lvl': 'bottom', 'hd.gem': 'top-left', 'hd.pause': 'top-right', 'hd.restart': 'top-right', 'rv.rubybar': 'top-right' };
+
+// ORDER of wf-data.js keeps the screen order (Object.entries would put the integer-like keys '10'..'18' first)
+const screens = [['03', 'reference'], ...ORDER.map((sid) => [sid, PICK[sid]])].map(([sid, pick]) => {
+  const els = sid === '03' ? L['03']() : shaded(sid, L[sid](pick));
+  const inv = INV[sid][1];
+  return {
+    sid, name: INV[sid][0], concept: sid === '03' ? 'reference' : pick, file: `${sid}-${SLUG[sid]}.png`,
+    els: els.filter((e) => e.id).map((e) => ({ id: e.id, element: inv[e.id][0], object: inv[e.id][1], text: inv[e.id][2], x: Math.round(e.x), y: Math.round(e.y), w: Math.round(e.w), h: Math.round(e.h), fs: !e.t || ['badge', 'ghost', 'state', 'scene'].includes(e.s) ? null : Math.round(fontSize(e)), shape: e.s, state: e.s === 'state', request: inv[e.id][3] === 'req', anchor: EDGE[e.id] || 'canvas' })),
+    svg: svg(els),
+    check: check(sid, els),
+  };
+});
+globalThis.FINAL = screens.map(({ svg: _, check: __, ...s }) => s);
+
+if (new URLSearchParams(location.search).has('export')) document.body.classList.add('export');
+let html = `<nav class="toc">${screens.map((s) => `<a href="#s-${s.sid}">${s.sid} ${s.name}</a>`).join('')}</nav>`;
+for (const s of screens) {
+  html += `<h2 id="s-${s.sid}">${s.sid} ${s.name} — ${s.concept === 'reference' ? 'theo ảnh mẫu' : 'concept ' + s.concept}</h2><div class="frame" data-file="${s.file}">${s.svg}</div>${s.check}
+  <details open><summary>Phần tử → vị trí (design 1280×720)</summary><div class="wrap"><table><tr><th>id</th><th>Phần tử</th><th>Object gốc</th><th>Neo</th><th>x</th><th>y</th><th>w</th><th>h</th><th>Cỡ chữ</th></tr>
+  ${s.els.map((e) => `<tr><td><code>${e.id}</code></td><td>${e.element}${e.request ? '<span class="tag">added on request</span>' : ''}${e.state ? '<span class="tag">trạng thái</span>' : ''}</td><td><code>${e.object}</code></td><td>${e.anchor}</td><td>${e.x}</td><td>${e.y}</td><td>${e.w}</td><td>${e.h}</td><td>${e.fs ?? ''}</td></tr>`).join('')}</table></div></details>`;
+}
+document.getElementById('out').innerHTML = html;
+</script>
+</body>
+</html>

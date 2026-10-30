@@ -9,6 +9,12 @@ const curve = (c, def) => (c instanceof AnimationCurve ? c : def || AnimationCur
 /** Unity Vector3 field -> our mirrored space */
 const u3 = (a) => (Array.isArray(a) ? new THREE.Vector3(a[0] || 0, a[1] || 0, -(a[2] || 0)) : a ? a.clone() : new THREE.Vector3());
 const screenKey = () => `${window.innerWidth}x${window.innerHeight}`;
+/** the top rect of a UI element gets the screen size from UISystem.layout: before that its world positions are 0 */
+const uiLaidOut = (t) => {
+  let root = t;
+  for (let p = t.parent; p?.isRectTransform; p = p.parent) root = p;
+  return !!root._driven;
+};
 const remap = (x, a, b, c, d) => c + ((x - a) * (d - c)) / (b - a);
 
 /** Global feedback events (camera shake, flash, freeze frame) the camera/HUD listen to. */
@@ -657,7 +663,8 @@ export class MMFeedbackPosition extends MMFeedback {
     // world positions of UI elements are screen pixels: remember the screen size and the target's resting layout
     // so a resized window (never happens on the mobile original) can re-determine them on the next play
     if (this.Space === 0 && tgt.isRectTransform) {
-      this._screenKey = screenKey();
+      // feedbacks initialized on Awake of a fresh menu run before its first layout: determined again on play
+      this._screenKey = uiLaidOut(tgt) ? screenKey() : 'not laid out';
       this._restAnchored ??= tgt.anchoredPosition.clone();
     }
     if (this.InitialPositionTransform) this.InitialPositionV = this.GetPosition(this.InitialPositionTransform);

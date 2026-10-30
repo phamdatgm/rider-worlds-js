@@ -9,14 +9,14 @@ import { Assets } from '../engine/assets.js';
 import { Color } from '../ugui/graphic.js';
 import { UISprites } from '../ugui/sprites.js';
 import { Meta } from '../meta/data.js';
-import { CardService, CardType, Card } from '../meta/cards.js';
+import { CardService, CardType, Card, RANK_TYPES } from '../meta/cards.js';
 import { WorldManager as Worlds } from '../meta/worlds.js';
 import { Game } from '../game/state.js';
 import { setupCards, loadCards } from '../game/game.js';
 import { PlayerVehicle, TrailEffect } from '../game/player.js';
 import { localize } from './common.js';
 import { AudioSampleID, CurrencyService, CurrencyType } from './services.js';
-import { MainMenuPage, MainMenuManager } from './home.js';
+import { MainMenuPage, MainMenuManager, UI_WorldNavButtons } from './home.js';
 import { UIStatics } from './statics.js';
 
 // ---------------------------------------------------------------- card system helpers (CW.CardSystem)
@@ -134,6 +134,7 @@ function menuPlayer() {
 let applyToken = 0;
 /** prefabs of the card items are loaded on demand (the menu only preloads the equipped ones) */
 async function applyCosmetics(type, overrides = {}, cards = []) {
+  const types = [].concat(type);
   const token = ++applyToken;
   const need = cards.filter((c) => (c.def.items || []).some((it) => it?.$prefab && !Assets.prefabs.has(it.$prefab)));
   if (need.length) await loadCards(need);
@@ -141,10 +142,18 @@ async function applyCosmetics(type, overrides = {}, cards = []) {
   setupCards(overrides);
   const p = menuPlayer();
   if (!p) return;
-  const m = PLAYER_UPDATE[type];
-  if (m && p[m]) p[m]();
-  if (type === CardType.Vehicle) p.TrailEffect?.Show?.(false);
+  for (const t of types) {
+    const m = PLAYER_UPDATE[t];
+    if (m && p[m]) p[m]();
+  }
+  if (types.includes(CardType.Vehicle)) p.TrailEffect?.Show?.(false);
 }
+
+/** every collection at once: the cards are equipped per world, so a world change swaps them all */
+export function applyWorldCosmetics() {
+  return applyCosmetics(RANK_TYPES, {}, RANK_TYPES.map((t) => CardService.Equipped(t)).filter(Boolean));
+}
+Worlds.CurrentWorldChanged.AddListener(() => applyWorldCosmetics());
 
 /** GameCardService.onVehicleChanged / onColorChanged ... (selection or rank of the selected card changed) */
 CardService.onEquippedChanged.AddListener((type) => {
@@ -300,6 +309,8 @@ export class TrailEffectPreview extends VehicleMovingPreview {
 
 export class LandingEffectPreview extends VehicleMovingPreview {
   OnEndFall() {
+    // restarted on every landing: Play() on a system still playing keeps it as it is, so only the first landing showed
+    this.player?.PerfectLandingEffect?.particlePlay?.BoundParticleSystem?.Stop?.(true, true);
     this.player?.PerfectLandingEffect?.PlayLandingParticle?.();
   }
 }
@@ -344,6 +355,9 @@ export class DeathEffectPreview extends VehicleMovingPreview {
         console.warn('death preview explosion', e.message);
       }
     }
+    // restarted on every drop: Play() on a system still playing (a looping part) keeps it as it is, so only the
+    // first drop of the preview burst
+    this.deathParticle?.Stop?.(true, true);
     this.deathParticle?.Play?.();
     p.CarVisuals?.gameObject.SetActive(false);
   }
@@ -527,7 +541,11 @@ export class UI_MetaTabBase extends MonoBehaviour {
     this._spawn = this.StartCoroutine((function* () {
       self.usableCards.clear();
       let lastGrid = null;
+      // one world at a time: the world shown on Home (its navigation's selection, a locked world too)
+      const selected = UI_WorldNavButtons.localWorldSelected;
+      const shown = selected >= 0 ? selected : Worlds.CurrentWorldIndex;
       for (let i = 0; i < Worlds.HighestWorldIndex + 1; i++) {
+        if (i !== shown) continue;
         const worldCards = cards.filter((c) => c.UnlocksInWorldID === i);
         const divider = Instantiate(self.dividerPrefab, self.cardParent);
         divider.GetComponentInChildren('SetTextCore')?.SetText(replaceTerm(self.worldText, i + 1));

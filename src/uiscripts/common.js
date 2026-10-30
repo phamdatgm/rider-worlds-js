@@ -613,6 +613,21 @@ export function managedReference(component, field) {
 
 import { InputUIBlocker } from '../ugui/events.js';
 
+/** plays an MMFeedbacks sequence with no duration and no delays, so every feedback lands on its end state at once
+ *  (owner's request: popups open and close decisively, without their fade / slide transitions) */
+export function playFeedbacksAtOnce(fb) {
+  if (!fb?.CanPlay || !fb.gameObject.activeInHierarchy) return;
+  if (!fb._initialized) fb.Initialization(fb.gameObject);
+  fb.ResetFeedbacks();
+  const m = fb.DurationMultiplier;
+  fb.DurationMultiplier = 0;
+  try {
+    for (const f of fb.list) if (f.Active && f.ShouldPlayInThisSequenceDirection) f.CustomPlayFeedback(fb.transform.position, fb.FeedbacksIntensity);
+  } finally {
+    fb.DurationMultiplier = m;
+  }
+}
+
 export class UI_OverlayBase extends MonoBehaviour {
   static typeName = 'UI_OverlayBase';
 
@@ -633,42 +648,27 @@ export class UI_OverlayBase extends MonoBehaviour {
     return this.gameObject.activeSelf;
   }
 
+  // opens at once (owner's request): transitionFeedbackIn lands on its end state instead of fading the backdrop,
+  // the panel and the close button in over 0.4 s
   TryOpen() {
     if (this._overlayCo) return false;
     this.gameObject.SetActive(true);
-    if (this.transitionFeedbackIn) {
-      if (this.disableInputWhenTransitioning) InputUIBlocker.DisableInput();
-      this.transitionFeedbackIn.PlayFeedbacks();
-    }
-    this._overlayCo = this.StartCoroutine(this.WaitForOpen());
+    playFeedbacksAtOnce(this.transitionFeedbackIn);
     this.OnOpen.Invoke();
+    this.OpenFinished();
     return true;
   }
 
+  // closes at once (owner's request): the original faded the panel, the close button and the backdrop out first
+  // (transitionFeedbackOut, additionalClose: 0.2 to 0.4 s), which felt slow and indecisive. transitionFeedbackOut still
+  // lands on its end state: it can restore objects outside the popup that transitionFeedbackIn faded
   TryClose() {
     if (this._overlayCo || !this.isActiveAndEnabled) return false;
-    if (this.transitionFeedbackOut) {
-      if (this.disableInputWhenTransitioning) InputUIBlocker.DisableInput();
-      this.transitionFeedbackOut.PlayFeedbacks();
-    }
-    this._overlayCo = this.StartCoroutine(this.WaitForClose());
+    playFeedbacksAtOnce(this.transitionFeedbackOut);
     this.OnClose.Invoke();
-    return true;
-  }
-
-  *WaitForOpen() {
-    if (this.transitionFeedbackIn) yield new WaitForSeconds(this.transitionFeedbackIn.TotalDuration);
-    if (this.additionalOpen) while (this.additionalOpen.IsPlaying) yield null;
-    this._overlayCo = null;
-    this.OpenFinished();
-  }
-
-  *WaitForClose() {
-    if (this.transitionFeedbackOut) yield new WaitForSeconds(this.transitionFeedbackOut.TotalDuration);
-    if (this.additionalClose) while (this.additionalClose.IsPlaying) yield null;
-    this._overlayCo = null;
     this.gameObject.SetActive(false);
     this.CloseFinished();
+    return true;
   }
 
   OnDisable() {

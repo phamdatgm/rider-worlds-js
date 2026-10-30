@@ -5,6 +5,8 @@ import path from 'node:path';
 /** Reload with console/error capture, then make sure the app sits in the menu with every tutorial skipped. */
 export async function boot(h) {
   await h.page.evaluateOnNewDocument(() => {
+    performance.setResourceTimingBufferSize(100000);
+    window.__mod = (p) => import(performance.getEntriesByType('resource').map(e => e.name).filter(n => new URL(n).pathname === p).pop() || p);
     window.__errs = [];
     const ce = console.error;
     console.error = (...a) => {
@@ -19,11 +21,13 @@ export async function boot(h) {
   await h.sleep(1500);
   if ((await h.eval(() => window.__app.state)) !== 'menu') {
     await h.eval(async () => {
-      const { Tutorials } = await import('/src/meta/tutorials.js');
-      const { Save } = await import('/src/meta/save.js');
+      const { Tutorials } = await __mod('/src/meta/tutorials.js');
+      const { Save } = await __mod('/src/meta/save.js');
+      const { getSDK } = await __mod('/src/sdk/gmsdkjs-shim.js');
       Save.data.tutorials ||= {};
       for (const t of Tutorials.all) Save.data.tutorials[t.SaveName] = 2;
       Save.save();
+      getSDK().storage.flush?.();
     });
     await h.page.reload();
     await h.wait(() => window.__app && window.__game?.manager && !window.__app.loading && window.__app.state === 'menu', 180000);

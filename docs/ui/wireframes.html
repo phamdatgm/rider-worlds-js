@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rider Worlds Wireframes</title>
+<style>
+:root { --bg: #0f1117; --panel: #181b24; --line: #2a2f3d; --text: #e6e8ef; --muted: #9aa0b2; --accent: #c86bff; --ok: #22c55e; --bad: #ef4444; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 "Segoe UI", system-ui, sans-serif; }
+main { max-width: 2200px; margin: 0 auto; padding: 24px 16px 80px; }
+.cmp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cmp .frame { max-width: none; }
+.cmp.heads .box { margin: 0; font-size: 14px; }
+.cmp.sticky { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); margin-top: 12px; }
+.cmp.sticky div { font-weight: 700; color: var(--accent); }
+.col { display: none; font-weight: 700; color: var(--accent); }
+.frame.home { max-width: 1100px; }
+@media (max-width: 900px) { .cmp { grid-template-columns: 1fr; } .cmp.sticky { display: none; } .col { display: block; } }
+h1 { margin: 0 0 4px; font-size: 26px; }
+h2 { margin: 48px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 22px; }
+h3 { margin: 28px 0 6px; font-size: 17px; color: var(--accent); }
+a { color: var(--accent); }
+.sub { color: var(--muted); margin: 0 0 12px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+nav.toc a { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; background: var(--panel); }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+.box ul { margin: 4px 0; padding-left: 20px; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 13px; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.wrap { overflow-x: auto; }
+code { font: 12px Consolas, monospace; background: #232736; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.frame { margin: 8px 0 4px; max-width: 960px; }
+.frame svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; }
+.check { font-size: 13px; margin: 2px 0 6px; }
+.check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+details { margin: 0 0 18px; } summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 4px; background: #3b2a00; color: #f5b000; margin-left: 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 10px; margin-right: 6px; vertical-align: middle; border: 2px solid; }
+.lg-n::before { border-color: #b03cff !important; background: #1a0b45; }
+.lg-a::before { border-color: #ff5ce1 !important; background: #3a1170; }
+.lg-g::before { border-style: dashed !important; border-color: #7d7fb0 !important; }
+.lg-s::before { border-style: dashed !important; border-color: #f5b000 !important; }
+</style>
+</head>
+<body>
+<main>
+<h1>Rider Worlds — Wireframes (Giai đoạn 2)</h1>
+<p class="sub">Khung thiết kế 1280×720 (16:9). <a href="index.html">← Danh sách màn hình</a>. Mọi phần tử lấy từ bảng kiểm kê (danh sách đóng); dòng kiểm tra dưới mỗi khung báo thiếu / thừa.</p>
+<div class="legend"><span class="lg-n">Khung / nút</span><span class="lg-a">Đang chọn</span><span class="lg-g">Cảnh 3D / art</span><span class="lg-s">Trạng thái phụ (chỉ hiện khi có điều kiện)</span></div>
+
+<div class="box">
+<b>Đã chốt với người dùng</b>
+<ul>
+<li><b>Home (03)</b> theo đúng ảnh mẫu người dùng gửi; cả 3 concept dùng chung Home này. Các màn khác theo cùng phong cách (khung lục giác / vát góc viền neon tím–xanh, nền tối, chữ đậm in hoa).</li>
+<li>LEVELS và CHALLENGES chuyển xuống thanh tab, thay 2 ô khoá (trang Settings và PLACEHOLDER chưa từng mở) — đổi chỗ, không thêm chức năng.</li>
+<li>Ô <b>WORLD</b> đang chọn = nút Play (bỏ nút Play riêng) <span class="tag">added on request</span></li>
+<li>Tab Garage ghi <b>Vehicles</b> thay cho "Collection" (chữ đã có trong game) <span class="tag">added on request</span></li>
+<li>Nền núi neon + bệ đỡ xe ở Home đưa vào spec (đổi cảnh 3D menu) <span class="tag">added on request</span></li>
+<li>Leaderboard (11) làm lại giao diện: tự vẽ bằng <code>src/sdk/leaderboard/leaderboard.js</code>, bỏ <code>ui.js</code> mặc định (đúng cách kit cho phép). Loading (01) giữ mặc định của kit, không vẽ.</li>
+</ul>
+</div>
+
+<nav class="toc"><a href="#home">Home (chốt)</a><a href="#cmp">So sánh A | B | C</a><a href="#inv">Bảng kiểm kê</a></nav>
+
+<div id="out"></div>
+</main>
+<script src="wf-data.js"></script>
+<script>
+let html = '';
+// screen index
+html += `<nav class="toc">${ORDER.map((sid) => `<a href="#s-${sid}">${sid} ${INV[sid][0]}</a>`).join('')}</nav>`;
+// home
+const home = L['03']();
+html += `<h2 id="home">03 Home — đã chốt theo ảnh mẫu (dùng chung cho cả 3 concept)</h2><p class="sub">Toạ độ đo từ ảnh mẫu 1672×941 quy về 1280×720. Ô WORLD đang sáng: bấm lần nữa = Play (icon ▶ nhỏ cạnh quả cầu). Hai ô khoá cũ (trang Settings, PLACEHOLDER) bỏ khỏi thanh tab.</p><div class="frame home">${svg(home)}</div>${check('03', home)}${posTable('03', home)}`;
+// the three concepts side by side, one row per screen
+html += `<h2 id="cmp">So sánh 3 concept</h2>`;
+html += `<div class="cmp heads">${Object.entries(CONCEPTS).map(([c, [name, desc]]) => `<div class="box"><b>Concept ${c} — ${name}</b><br>${desc}</div>`).join('')}</div>`;
+html += `<div class="cmp sticky">${Object.entries(CONCEPTS).map(([c, [name]]) => `<div>Concept ${c} — ${name}</div>`).join('')}</div>`;
+for (const sid of ORDER) {
+  html += `<h3 id="s-${sid}">${sid} ${INV[sid][0]}</h3><div class="cmp">`;
+  for (const c of Object.keys(CONCEPTS)) {
+    const els = L[sid](c);
+    html += `<div><div class="col">${c}</div><div class="frame">${svg(els)}</div>${check(sid, els)}${posTable(sid, els)}</div>`;
+  }
+  html += `</div>`;
+}
+// inventory
+html += `<h2 id="inv">Bảng kiểm kê (danh sách đóng)</h2><p class="sub">Mọi concept chỉ được dùng đúng và đủ các phần tử dưới đây. Phần tử ẩn trong game và không có đường bật (Booster, Bonus Ride, thanh tiền tệ tắt của Reward Track) không đưa vào.</p>`;
+for (const [sid, [name, items]] of Object.entries(INV)) {
+  html += `<h3>${sid} ${name}</h3><div class="wrap"><table><tr><th>id</th><th>Phần tử</th><th>Object gốc</th><th>Chữ / icon</th></tr>${Object.entries(items).map(([k, v]) => `<tr><td><code>${k}</code></td><td>${v[0]}${v[3] === 'req' ? '<span class="tag">added on request</span>' : ''}</td><td><code>${v[1]}</code></td><td>${v[2]}</td></tr>`).join('')}</table></div>`;
+}
+document.getElementById('out').innerHTML = html;
+</script>
+</body>
+</html>

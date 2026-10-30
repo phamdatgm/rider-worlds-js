@@ -50,12 +50,12 @@ PARTICLE_KEEP = {
     "moveWithCustomTransform", "scalingMode", "randomSeed", "InitialModule", "ShapeModule",
     "EmissionModule", "SizeModule", "RotationModule", "ColorModule", "VelocityModule",
     "ClampVelocityModule", "ForceModule", "SizeBySpeedModule", "ColorBySpeedModule", "NoiseModule",
-    "UVModule", "TrailModule", "InheritVelocityModule",
+    "UVModule", "TrailModule", "InheritVelocityModule", "CustomDataModule",
 }
 PARTICLE_RENDERER_KEEP = {"m_Enabled", "m_Materials", "m_RenderMode", "m_SortMode", "m_MinParticleSize",
                           "m_MaxParticleSize", "m_LengthScale", "m_VelocityScale", "m_CameraVelocityScale",
                           "m_RenderAlignment", "m_Pivot", "m_Flip", "m_Mesh", "m_SortingOrder",
-                          "m_UseCustomVertexStreams"}
+                          "m_UseCustomVertexStreams", "m_VertexStreams"}
 
 BUILTIN_EXTRA = "0000000000000000e000000000000000"
 BUILTIN_RES = "0000000000000000f000000000000000"

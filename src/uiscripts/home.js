@@ -154,10 +154,11 @@ export class MainMenuManager extends MonoBehaviour {
   LoadMenuPage() {
     const ms = getMenuState();
     const i = ms.currentMenuPageIndex;
+    // the first page always opens: a rank-up popup pending from the menu this one replaces must not leave it empty
     if (i !== -1) {
       ms.currentMenuPageIndex = -1;
-      this.DoMenuSwitch(this.switchers[i]);
-    } else this.DoMenuSwitch(this.switchers[0]);
+      this.DoMenuSwitch(this.switchers[i], true);
+    } else this.DoMenuSwitch(this.switchers[0], true);
   }
 
   *WaitForMainGame() {
@@ -165,8 +166,8 @@ export class MainMenuManager extends MonoBehaviour {
     GameManager.Instance.cameraRig?.MainCameraShow?.(this.currentMenu?.usesGameCamera);
   }
 
-  DoMenuSwitch(ms) {
-    if (UIStatics.RankUpPopup.IsOpenOrActive) return;
+  DoMenuSwitch(ms, initial = false) {
+    if (!initial && UIStatics.RankUpPopup.IsOpenOrActive) return;
     if (!ms.IsUnlocked()) {
       if (ms.UnlockRank < 0) MainMenuManager.PushTooltip(this.comingSoonText || { mTerm: 'UI/Unlock/ComingSoon' });
       else MainMenuManager.PushTooltip(this.localizedUnlockText, String(ms.UnlockRank));
@@ -256,8 +257,8 @@ class ShopGameNotificationHandler extends BaseGameNotificationHandler {
       if (page.lootboxSection.CanGetFreeLootbox()) n++;
       if (page.lootboxSection.CanGetLargeLootbox()) n++;
     }
-    n += this.dailyDealShopData?.HasFree?.() ? 1 : 0;
-    return n + (this.hardCurrencyShopGiftSettings?.CanClaimGift ? 1 : 0);
+    // the rubies gift has no section in the web build (BaseShopController.UpdateSections)
+    return n + (this.dailyDealShopData?.HasFree?.() ? 1 : 0);
   }
 }
 
@@ -1109,6 +1110,9 @@ export class MainMenuRankUpPopupOpener extends MonoBehaviour {
 
   OnDisable() {
     this.RankManager.RankUp.RemoveListener(this._rankUp);
+    // the popup and its delayed spawn go with this menu: clear the static state, OnEnable opens the rank again
+    this.Close();
+    UIStatics.RankUpPopup.WasPopBlocked = false;
   }
 
   Update() {
@@ -1135,8 +1139,11 @@ export class MainMenuRankUpPopupOpener extends MonoBehaviour {
     this.StartCoroutine((function* () {
       yield new WaitForSeconds(self.showDelay);
       while (MainMenuManager.Instance?.RewardHandler?.AreAnyParticleInstancesActive) yield null;
-      if (UIStatics.TutorialActive()) st.WasPopBlocked = true;
-      else if (!self.spawned) {
+      if (UIStatics.TutorialActive()) {
+        // nothing is open while the tutorial runs (the C# kept IsOpenOrActive, locking the pages under the tutorial)
+        st.IsOpenOrActive = false;
+        st.WasPopBlocked = true;
+      } else if (!self.spawned) {
         if (self.debugInstantClaim) {
           self.OnClaimEvent();
           return;

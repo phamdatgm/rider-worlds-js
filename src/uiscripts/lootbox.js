@@ -394,9 +394,8 @@ export class UI_LootboxOpenAnimation extends MonoBehaviour {
     this.StartCoroutine(this.CloseScreen());
   }
 
+  // the result screen goes at once on Claim (owner's request) instead of fading out first (screenFade, 0.4 s)
   *CloseScreen() {
-    this.screenFade.PlayFeedbacks();
-    yield new WaitWhile(() => this.screenFade.IsPlaying);
     this.claimedCallback?.(this.watchedAd);
     Destroy(this.gameObject);
   }

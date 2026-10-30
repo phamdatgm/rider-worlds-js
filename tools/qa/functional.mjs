@@ -20,6 +20,8 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- fresh boot + tutorial
   await h.page.evaluateOnNewDocument(() => {
+    performance.setResourceTimingBufferSize(100000);
+    window.__mod = (p) => import(performance.getEntriesByType('resource').map(e => e.name).filter(n => new URL(n).pathname === p).pop() || p);
     window.__errs = [];
     const ce = console.error;
     console.error = (...a) => {
@@ -48,8 +50,8 @@ export default async (h) => {
   // scripted rider for the first-run tutorial; mode 'crash' keeps flipping through the landing
   const runTutorial = async (mode) =>
     ev(async (mode) => {
-      const { Tutorials, FirstRunStep } = await import('/src/meta/tutorials.js');
-      const { World } = await import('/src/engine/scene.js');
+      const { Tutorials, FirstRunStep } = await __mod('/src/meta/tutorials.js');
+      const { World } = await __mod('/src/engine/scene.js');
       const ft = Tutorials.FirstRun;
       const send = (t) => window.dispatchEvent(new KeyboardEvent(t, { code: 'ArrowUp' }));
       const names = Object.fromEntries(Object.entries(FirstRunStep).map(([k, v]) => [v, k]));
@@ -98,19 +100,19 @@ export default async (h) => {
 
   // ---------------------------------------------------------------- settings
   const settingsBefore = await ev(async () => {
-    const { Save } = await import('/src/meta/save.js');
+    const { Save } = await __mod('/src/meta/save.js');
     return { ...Save.data.settings };
   });
   await ev(async () => {
-    const { World } = await import('/src/engine/scene.js');
-    const { GlobalSavedSettings } = await import('/src/uiscripts/settings.js');
+    const { World } = await __mod('/src/engine/scene.js');
+    const { GlobalSavedSettings } = await __mod('/src/uiscripts/settings.js');
     // the option toggles live in the (inactive) pause popup: drive them like their buttons do
     GlobalSavedSettings.ToggleAudio();
     GlobalSavedSettings.ToggleSfx();
     GlobalSavedSettings.ToggleBloom();
   });
   const snapBefore = await ev(async () => {
-    const { Save } = await import('/src/meta/save.js');
+    const { Save } = await __mod('/src/meta/save.js');
     Save.save();
     return JSON.stringify(Save.data);
   });
@@ -118,8 +120,8 @@ export default async (h) => {
   await waitFor(() => window.__app && window.__game?.manager && !window.__app.loading, 180000);
   await h.sleep(1500);
   const afterReload = await ev(async () => {
-    const { Save } = await import('/src/meta/save.js');
-    const { Tutorials } = await import('/src/meta/tutorials.js');
+    const { Save } = await __mod('/src/meta/save.js');
+    const { Tutorials } = await __mod('/src/meta/tutorials.js');
     return { state: window.__app.state, settings: { ...Save.data.settings }, data: JSON.stringify(Save.data), tutFinished: Tutorials.FirstRun.IsFinished };
   });
   // after the tutorial the run goes on like an Endless run (toMenu is informative only)
@@ -129,8 +131,8 @@ export default async (h) => {
   result('SET-02', !!afterReload.settings.bloom === !settingsBefore.bloom ? 'pass' : 'fail', `Bloom ${settingsBefore.bloom ? 'bật→tắt' : 'tắt→bật'} và giữ sau khi tải lại. Chưa so ảnh bằng mắt.`);
   // put the settings back
   await ev(async (before) => {
-    const { Save } = await import('/src/meta/save.js');
-    const { applySettings } = await import('/src/game/settings.js');
+    const { Save } = await __mod('/src/meta/save.js');
+    const { applySettings } = await __mod('/src/game/settings.js');
     Object.assign(Save.data.settings, before);
     Save.save();
     applySettings(Save.data.settings);
@@ -156,7 +158,7 @@ export default async (h) => {
     });
 
   await startEndless(0);
-  const highBefore = await ev(async () => (await import('/src/uiscripts/services.js')).endlessHighScores(0).highScore);
+  const highBefore = await ev(async () => (await __mod('/src/uiscripts/services.js')).endlessHighScores(0).highScore);
   const p0 = await player();
   await key('keydown');
   await h.sleep(2000);
@@ -169,7 +171,7 @@ export default async (h) => {
   await key('keyup', 'Escape');
   await h.sleep(300);
   const pa = await ev(async () => {
-    const { HUD } = await import('/src/uiscripts/hud.js');
+    const { HUD } = await __mod('/src/uiscripts/hud.js');
     return { menu: !!HUD.Instance?.pauseMenu?.activeSelf, ts: window.__time.timeScale, x: window.__game.manager.RunState.PlayerState.Player.transform.position.x };
   });
   await h.sleep(1000);
@@ -178,7 +180,7 @@ export default async (h) => {
   await key('keyup', 'KeyP');
   await h.sleep(500);
   const pc = await ev(async () => {
-    const { HUD } = await import('/src/uiscripts/hud.js');
+    const { HUD } = await __mod('/src/uiscripts/hud.js');
     return { menu: !!HUD.Instance?.pauseMenu?.activeSelf, ts: window.__time.timeScale };
   });
   await h.shot('qa-paused');
@@ -200,7 +202,7 @@ export default async (h) => {
   const revive = { prompts: 0, adAccepted: 0, adHiddenAfterRv: null, hardNoMoney: null, hardPaid: null, timeout: null, flips: 0, reasons: {}, maxScore: 0 };
   const findUi = () =>
     ev(async () => {
-      const { World } = await import('/src/engine/scene.js');
+      const { World } = await __mod('/src/engine/scene.js');
       const ui = [...World.behaviours].find((b) => typeof b.OnAcceptAd === 'function' && b.gameObject.activeInHierarchy && b.callback);
       if (!ui) return null;
       window.__reviveUi = ui;
@@ -229,7 +231,7 @@ export default async (h) => {
     } else if (revive.hardPaid === null) {
       revive.adHiddenAfterRv = !ui.adVisible;
       const r = await ev(async () => {
-        const { Currencies } = await import('/src/meta/currency.js');
+        const { Currencies } = await __mod('/src/meta/currency.js');
         const ui = window.__reviveUi;
         const cost = ui.hardPayDefinition.amount;
         Currencies.Hard.Spend(Currencies.Hard.value);
@@ -259,7 +261,7 @@ export default async (h) => {
   if (revive.hardPaid) result('REV-03', revive.hardNoMoney && revive.hardPaid.spent === revive.hardPaid.cost ? 'pass' : 'fail', `0 rubies: bấm trả rubies không hồi sinh, popup vẫn mở. Có ${revive.hardPaid.cost + 3} rubies: trừ đúng ${revive.hardPaid.spent}/${revive.hardPaid.cost} rubies rồi hồi sinh. Tooltip “thiếu rubies” chưa kiểm bằng mắt.`);
   if (revive.adHiddenAfterRv !== null) {
     // the ad button stays while RvRevivesClaimed < rvRevivesPerRun (3 in Endless Mode Settings)
-    const limit = await ev(async () => (await import('/src/uiscripts/revive.js')).endlessReviveSettings?.().rvRevivesPerRun ?? 1).catch(() => 1);
+    const limit = await ev(async () => (await __mod('/src/uiscripts/revive.js')).endlessReviveSettings?.().rvRevivesPerRun ?? 1).catch(() => 1);
     const expectHidden = limit <= 1;
     result('REV-07', revive.adHiddenAfterRv === expectHidden ? 'pass' : 'fail', `Giới hạn ${limit} lần hồi sinh bằng quảng cáo/run; sau 1 lần, lần mời sau ${revive.adHiddenAfterRv ? 'ẩn' : 'vẫn hiện'} nút quảng cáo (đúng mong đợi: ${expectHidden ? 'ẩn' : 'hiện'}).`);
   }
@@ -268,7 +270,7 @@ export default async (h) => {
   const endState = await waitFor(() => window.__app.state === 'menu' || !window.__game.manager.RunState.IsInRun, 20000);
   await h.shot('qa-endrun');
   const after = await ev(async () => {
-    const { endlessHighScores } = await import('/src/uiscripts/services.js');
+    const { endlessHighScores } = await __mod('/src/uiscripts/services.js');
     const rs = window.__game.manager.RunState;
     return { hs: endlessHighScores(0).highScore, inRun: rs.IsInRun, state: window.__app.state, score: rs.StatTracker?.Score ?? rs.previousStatTracker?.Score };
   });
@@ -305,14 +307,18 @@ export default async (h) => {
   await waitFor(() => window.__app && window.__game?.manager && !window.__app.loading && window.__app.state === 'menu', 180000);
   await h.sleep(3000);
   const before2 = await ev(async () => {
-    const { Save } = await import('/src/meta/save.js');
+    const { Save } = await __mod('/src/meta/save.js');
+    const { getSDK } = await __mod('/src/sdk/gmsdkjs-shim.js');
     Save.save();
+    // Save writes are batched by the SDK. Flush before reload so this assertion
+    // compares persisted data instead of racing the pending storage timer.
+    getSDK().storage.flush?.();
     return JSON.stringify(Save.data);
   });
   await h.page.reload();
   await waitFor(() => window.__app && window.__game?.manager && !window.__app.loading, 180000);
   await h.sleep(1500);
-  const after2 = await ev(async () => JSON.stringify((await import('/src/meta/save.js')).Save.data));
+  const after2 = await ev(async () => JSON.stringify((await __mod('/src/meta/save.js')).Save.data));
   const a = JSON.parse(before2);
   const b = JSON.parse(after2);
   // runsTracker.session.sessionID counts app launches by design
