@@ -3,6 +3,8 @@ import { Canvas, CanvasGroup, GraphicRaycaster, UISystem } from '../ugui/canvas.
 import { WorldManager, PlayerRankManager, BonusState } from '../uiscripts/services.js';
 import { UI_WorldNavButtons } from '../uiscripts/home.js';
 import { UISprites } from '../ugui/sprites.js';
+import { GameObject } from '../engine/scene.js';
+import { RectTransform } from '../ugui/rect.js';
 import { Button } from '../ugui/selectable.js';
 import { PlayerRank } from '../meta/rank.js';
 import { TransitionScreen, getSceneSwitcher } from '../uiscripts/scenes.js';
@@ -71,16 +73,44 @@ export function homeLayout(ctx) {
       };ctx.onFrame.push(showCaption);ctx.onEveryFrame.push(showCaption);}
     }
     badgeNumber(ctx,tab);
+    // The tutorials focus a tab on its icon (TutorialCenterSocket), which sat at the top of the tab: the circle stood
+    // off its middle (owner's capture). A rect in the tab's middle takes the focus, the hand presses just under it.
+    const state=tab.gameObject.GetComponent('MenuButtonState');
+    if(state){
+      if(!state._ui2TutorialCenter){
+        const go=new GameObject('UI2 Tutorial Center',RectTransform);go._ui2Added=true;go.transform.SetParent(tab,false);
+        ctx.gos.push(go);state._ui2TutorialCenter=go.transform;
+      }
+      const cx=r.x+r.w/2,cy=r.y+r.h/2;
+      frame(state._ui2TutorialCenter,at(r,cx-48,cy-48,96,96));
+      // the fingertip at the icon's lower right (owner's markup)
+      frame(state.tutorialSocket,at(r,cx+20,cy-6,2,2));
+    }
     // the World/Play tab shows no badge (owner's request): the ping handler turns it back on, so it is held off each frame
     const ping=suffix==='Endless' && tab.Find('GameNotificationWithText');
     if(ping)ctx.onEveryFrame.push(()=>{if(ping.gameObject.activeSelf)ping.gameObject.SetActive(false);});
     const requirement=tab.Find('Star Requirement Indicator');
     if(requirement){
-      frame(requirement,at(r,r.x+r.w-57,r.y+8,42,30));
-      frame(requirement.Find('Underlay'),at(r,r.x+r.w-57,r.y+8,42,30));
-      frame(requirement.Find('Underlay/Star'),at(r,r.x+r.w-49,r.y+8,26,26));
-      frame(requirement.Find('Underlay/Requirement (TMP)'),at(r,r.x+r.w-49,r.y+8,26,26),15);
-      frame(requirement.Find('Underlay/Need (TMP)'),at(r,r.x+7,r.y+5,60,20),15);
+      // Owner's request: a locked tab is dimmed and shows a padlock where its icon was; tapping it still tells the rank it
+      // needs (the "Needs ★ 3" label wrapped to "Need / s" in the corner, the rank a tiny figure on a star)
+      const icons=['Icon - Active','Icon - Inactive'].map(n=>tab.Find(n)?.gameObject.GetComponent('Image')).filter(Boolean);
+      const captions=tab.children.filter(c=>c.name==='Text (TMP)').map(c=>c.gameObject.GetComponent('TextMeshProUGUI')).filter(Boolean);
+      ctx.onEveryFrame.push(()=>{
+        const locked=requirement.gameObject.activeSelf;
+        if(tabImage && tabImage.color.a!==(locked?.45:1))tabImage.color=color('#ffffff',locked?.45:1);
+        if(locked){for(const i of icons)i.color=color('#ffffff',0);for(const c of captions)c.color=color(tokens.text,.4);}
+        else{
+          for(const i of icons)if(i.color.a===0)i.color=color('#ffffff');
+          // (textStyle keeps a text's alpha, so the dimmed caption is brought back here)
+          for(const c of captions)if(c.color.a<1)c.color=c.color.withAlpha?c.color.withAlpha(1):color(tokens.text);
+        }
+      });
+      // the indicator's plate becomes the padlock; its label, star and rank are off
+      const lock=[r.x+r.w/2-26,r.y+r.h-90,52,52];
+      frame(requirement,at(r,...lock));frame(requirement.Find('Underlay'),at(r,...lock));
+      for(const n of ['Need (TMP)','Star','Requirement (TMP)'])ctx.hide(requirement.Find('Underlay/'+n));
+      const plate=requirement.Find('Underlay')?.gameObject.GetComponent('Image');
+      if(plate)ctx.onFrame.push(()=>{plate.sprite='Sprite/SA_Icons/S_Lock';plate.type=0;plate.preserveAspect=true;plate.color=color('#ffffff',.9);plate.raycastTarget=false;});
     }
   }
   // Challenges and Levels: icon-only hexagon buttons under the settings button (owner's markup, 2026-10-28)
@@ -190,7 +220,7 @@ export function homeLayout(ctx) {
   for(const [id,n] of [['h.gem','SoftCurencyBar'],['h.ruby','HardCurrencyBar']]){
     const bar=find('UI Container/TopContainer/TopBar/Right/'+n),r=ctx.rects[id];
     skin(bar?.gameObject.GetComponent('Image'),'panel','pill');
-    // owner's request: rubies left, gems right; the figure first and the icon at the right end, inside the pill (clear
+    // owner's request: gems on top, rubies below; the figure first and the icon at the right end, inside the pill (clear
     // of its pointed end) with a bloom. The sprite is 128 px with the 76 px glyph in the middle, so the 50 px rect
     // draws a 30 px icon centred 33 px from the right end; the figure is right-aligned against it.
     rel(bar?.Find('Icon'),[r.w-58,r.h/2-25,50,50]);
@@ -241,6 +271,18 @@ export function homeLayout(ctx) {
   const hs=home.Find('TopContainer/ScoreDisplay/Container Best')?.gameObject.GetComponent('Image');
   if(hs)ctx.onFrame.push(()=>{hs.color=color('#ffffff',0);});
   ctx.onFrame.push(()=>{const t=home.Find('TopContainer/ScoreDisplay/Container Best/High Score Text')?.gameObject.GetComponent('TextMeshProUGUI');if(t)t.color=color(accent());});
+  // "New Best!" sits under the score as gold text alone, no plate (owner's request)
+  const nb=ctx.rects['h.hsNew'],sticker=home.Find('TopContainer/ScoreDisplay/NewSticker');
+  rel(sticker?.Find('ImageBanner'),[0,0,nb.w,nb.h]);rel(sticker?.Find('ImageBanner/NewText (TMP)'),[0,0,nb.w,nb.h],nb.fs);
+  const plate=sticker?.Find('ImageBanner')?.gameObject.GetComponent('Image'),newText=tmp(sticker?.Find('ImageBanner/NewText (TMP)'));
+  // it shares the line under the score with BONUS (h.bonus) and gives way while BONUS shows
+  const bonusClaim=home.Find('BottomContainer/ClaimBonusButton');
+  const stickerGroup=sticker&&(sticker.gameObject.GetComponent('CanvasGroup')||sticker.gameObject.AddComponent(CanvasGroup));
+  if(stickerGroup)ctx.onEveryFrame.push(()=>{const a=bonusClaim?.gameObject.activeInHierarchy?0:1;if(stickerGroup.alpha!==a)stickerGroup.alpha=a;stickerGroup.blocksRaycasts=false;});
+  ctx.onFrame.push(()=>{
+    if(plate && plate.color.a!==0)plate.color=plate.color.withAlpha(0);
+    if(newText){textStyle(newText,nb.fs,true,tokens.gold);newText.enableWordWrapping=false;newText.horizontalAlignment=2;newText.verticalAlignment=512;}
+  });
   // New tab positions leave all tutorial sockets under the original buttons.
 }
 /** BONUS stays on Home only while its reward waits (owner's request, 2026-10-29): short of five letters it shows for

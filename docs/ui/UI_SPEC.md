@@ -1,4 +1,4 @@
-# Rider Worlds — UI spec (landscape re-layout, neon style)
+| `ru.tap` | Click to continue | `TapToContinue` | canvas | 440 | 578 | 400 | 30 | 18 | y 513 (the offer's place) when the rank gives no gems || `ru.rv` | Double reward (ad) button | `DoubleReward RV/Button` | canvas | 530 | 500 | 220 | 56 | 20 | state: only once the rewards are shown and one of them is gems || `ru.reward` | Rank rewards | `RewardBox (RankUpReward_*)` | canvas | 545 | 292 | 190 | 190 | 16 | square cards side by side, gap 24, centred on x 640; the picture keeps its shape (owner: "make it square so it is not distorted") || `ru.star` | Rank star (large) | `LevelBaseStar` | canvas | 560 | 126 | 160 | 150 | 44 |  || `ru.title` | Title | `RankBox/RankUp` | canvas | 440 | 64 | 400 | 56 | 40 | stays on (portrait fades it out) |# Rider Worlds — UI spec (landscape re-layout, neon style)
 
 Hand-off spec for the developer agent that builds the new UI (ReskinUI stage 4). Everything needed is in this file;
 the pictures are in `docs/ui/final/`.
@@ -210,9 +210,9 @@ Cancel / Save and the save error, Esc and ✕ close.
   the upper half.
 - **11 Leaderboard:** §3.4. Period tabs under the title, rows (rank, flag, name, score right-aligned), More / status
   line, the player's row + Name & flag at the bottom.
-- **12 Rank Up:** title, big rank star, rewards in a row, the x2 (ad) button, "Tap to continue".
+- **12 Rank Up:** title, big rank star, rewards in a row, the x2 (ad) button (gems only), "Click to continue".
 - **13 Claim Bonus:** concept A panel; the x2 Gems (ad) button above Claim, both full panel width.
-- **14 / 14b Lootbox:** chest in the centre with the cards-left badge on its top-right, "Tap to Open" as a button-like
+- **14 / 14b Lootbox:** chest in the centre with the cards-left badge on its top-right, "Click to Open" as a button-like
   plate below. Cards phase: the summary grid on the left (4 per row), the card being revealed on the right, the
   Lose it / ad / Claim buttons centred at the bottom.
 - **15 HUD:** gems top-left; "New Best!" above the score at top centre; in Level mode the timer and level name under
@@ -220,10 +220,10 @@ Cancel / Save and the save error, Esc and ✕ close.
   top-right; compliments centred in the upper third; the in-run challenge popup bottom centre.
 - **16 Pause:** panel with the title, 4 hexagon buttons in a row (Home, music, sound, bloom) and Resume; the running
   challenges (Endless only, as today) under the panel.
-- **17 Tutorial:** the instruction text and "Tap to Continue" in a plate at the bottom centre; focus, hand and
+- **17 Tutorial:** the instruction text and "Click to Continue" in a plate at the bottom centre; focus, hand and
   picture follow their targets as today.
-- **18 Revive:** panel in the centre (timer heart, "Revive?", Continue (ad), ruby price, ✕ on the corner); the reason
-  box under the panel; the ruby bar top-right.
+- **18 Revive:** panel in the centre (timer heart, "Revive?", Continue (ad), ruby price, ✕ on the corner); the ruby bar
+  top-right. No reason box in landscape.
 
 ### 5.1 Repeated items
 
@@ -514,11 +514,11 @@ Image: `docs/ui/final/12-rank-up.png` (concept A).
 | id | Element | Original object | Anchor | x | y | w | h | Font | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | `ru.bg` | Background | `Container/Background` | canvas | 0 | 0 | 1280 | 720 |  |  |
-| `ru.title` | Title | `RankBox/RankUp` | canvas | 440 | 110 | 400 | 56 | 40 |  |
-| `ru.star` | Rank star (large) | `LevelBaseStar` | canvas | 545 | 170 | 190 | 180 | 44 |  |
-| `ru.reward` | Rank rewards | `RewardBox (RankUpReward_*)` | canvas | 390 | 370 | 240 | 110 | 16 |  |
-| `ru.rv` | Double reward (ad) button | `DoubleReward RV/Button` | canvas | 530 | 500 | 220 | 56 | 20 |  |
-| `ru.tap` | Tap to continue | `TapToContinue` | canvas | 440 | 580 | 400 | 30 | 18 |  |
+| `ru.title` | Title | `RankBox/RankUp` | canvas | 440 | 100 | 400 | 56 | 40 | stays on (portrait fades it out) |
+| `ru.star` | Rank star (large) | `LevelBaseStar` | canvas | 555 | 164 | 170 | 160 | 44 |  |
+| `ru.reward` | Rank rewards | `RewardBox (RankUpReward_*)` | canvas | 368 | 344 | 260 | 130 | 16 | side by side, gap 24, centred on x 640; panel-framed card |
+| `ru.rv` | Double reward (ad) button | `DoubleReward RV/Button` | canvas | 530 | 498 | 220 | 56 | 20 | state: only once the rewards are shown and one of them is gems |
+| `ru.tap` | Click to continue | `TapToContinue` | canvas | 440 | 576 | 400 | 30 | 18 | y 511 (the offer's place) when the rank gives no gems |
 
 ### 13 Claim Bonus
 
@@ -541,7 +541,7 @@ Image: `docs/ui/final/14-lootbox.png` (concept C).
 | `lx.bg` | Background | `LootboxOpenAnimation/Background` | canvas | 0 | 0 | 1280 | 720 |  |  |
 | `lx.chest` | 3D chest | `RenderTextureLootbox` | canvas | 470 | 140 | 340 | 320 |  |  |
 | `lx.left` | Cards left badge | `CardsLeft` | canvas | 790 | 130 | 56 | 56 |  |  |
-| `lx.tap` | Tap to Open | `LootboxVisuals` | canvas | 490 | 652 | 300 | 50 | 22 | under the chest |
+| `lx.tap` | Click to Open | `LootboxVisuals` | canvas | 490 | 652 | 300 | 50 | 22 | under the chest |
 
 ### 14b Lootbox — cards / summary
 
@@ -561,8 +561,9 @@ Image: `docs/ui/final/15-hud.png` (concept A).
 
 | id | Element | Original object | Anchor | x | y | w | h | Font | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| `hd.gem` | Run gems | `HUD TopContainer/SoftCurencyBar` | top-left | 20 | 18 | 150 | 34 | 16 |  |
+| `hd.gem` | Run gems | `HUD TopContainer/SoftCurencyBar` | top-left | 20 | 18 | 150 | 34 | 20 |  |
 | `hd.best` | New Best! label | `Score Display (new best)` | canvas | 585 | 14 | 110 | 22 | 15 |  |
+| `hd.chstatus` | In-run challenge status | `ChallengePopupContainer/ChallengeStatus Popup` | bottom | 240 | 644 | 800 | 36 | 22 | text only, centred (no frame, icon or bar); keeps its status colour |
 | `hd.score` | Score | `Score Display - Gameplay` | canvas | 540 | 36 | 200 | 56 | 46 |  |
 | `hd.timer` | Level timer (Level) | `Level Timer` | canvas | 400 | 92 | 480 | 75 |  | state (shown only when it applies) |
 | `hd.name` | Level name (Level) | `TimedLevelNameDisplay` | canvas | 520 | 130 | 240 | 26 |  | state (shown only when it applies) |
@@ -595,10 +596,10 @@ Image: `docs/ui/final/17-tutorial.png` (concept C).
 | id | Element | Original object | Anchor | x | y | w | h | Font | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | `tu.block` | Input blocker | `InteractionBlocker` | canvas | 0 | 0 | 1280 | 720 |  | state (shown only when it applies) |
-| `tu.focus` | Focus highlight | `TutorialFocus` | canvas | 240 | 330 | 200 | 140 |  | state (shown only when it applies) |
+| `tu.focus` | Focus highlight | `TutorialFocus` | canvas | 240 | 330 | 200 | 140 |  | state (shown only when it applies); its darkening fills the whole window |
 | `tu.hand` | Hand (press / move) | `TutorialHand Press / Moving` | canvas | 330 | 420 | 80 | 90 |  |  |
 | `tu.text` | Instruction text | `TutorialText/Text` | canvas | 290 | 570 | 700 | 60 | 32 |  |
-| `tu.tap` | Tap to Continue | `TutorialText/TapToContinue` | canvas | 290 | 632 | 700 | 30 | 15 |  |
+| `tu.tap` | Click to Continue | `TutorialText/TapToContinue` | canvas | 290 | 632 | 700 | 30 | 15 |  |
 | `tu.image` | Picture | `TutorialImage` | canvas | 490 | 380 | 300 | 160 |  | state (shown only when it applies) |
 
 ### 18 Revive
@@ -613,7 +614,7 @@ Image: `docs/ui/final/18-revive.png` (concept A).
 | `rv.title` | Title | `Revive Test (TMP)` | canvas | 490 | 252 | 300 | 44 | 30 |  |
 | `rv.ad` | Continue (ad) button | `Ad Button` | canvas | 520 | 310 | 240 | 60 | 18 |  |
 | `rv.ruby` | Ruby button (+ price) | `HardCurrency Button` | canvas | 560 | 384 | 160 | 50 | 18 |  |
-| `rv.trigger` | Revive reason box | `TriggerBox` | canvas | 390 | 490 | 500 | 60 |  | state (shown only when it applies) |
+| `rv.trigger` | Revive reason box | `TriggerBox` | canvas | 390 | 490 | 500 | 60 |  | not shown in landscape |
 
 <!-- END SCREEN SPECS -->
 
@@ -678,12 +679,12 @@ object; "kit" = English fallback of `src/sdk/leaderboard/ui.js`. `{[0]}` / `{n}`
 | Shop popups | Contains: · Daily deals refresh · x/3 · Are you sure? | scene `Info Container/Text`; I2 `UI/Shop/DailyDeals/Refresh/Header`; scene `RefreshCount`, `info` |
 | Settings | Settings · V&lt;version&gt; + copyright line | I2 `UI/Pause/Settings`; `footerText()` |
 | Leaderboard | Leaderboard · Today · This week · This month · All time · Loading… · Could not load the leaderboard. · Try again · No scores yet. Be the first! · You · No score yet · More · Name & flag · Name · Up to 20 letters, numbers, _ or - · Flag · Save · Cancel · Could not save. Check the name and try again. · Close | kit (`t('leaderboard.*')` first) |
-| Rank Up | Rank Up! · Tap to continue | I2 `UI/PlayerRank/RankUpTitle`; scene `TapToContinue` |
+| Rank Up | Rank Up! · Click to continue | I2 `UI/PlayerRank/RankUpTitle`; scene `TapToContinue` |
 | Claim Bonus | Claim Bonus Reward · +{[0]} Gems · Claim · x{[0]} Gems | I2 `UI/MainMenu/ClaimBonusReward`, `+Gems`, `UI/Claim`, `xGems` |
-| Lootbox | Tap to Open · Lose it · Upgraded! · Quality Increased · Bonus Reward | I2 `UI/Shop/Lootbox/TapToOpen`; scene `LoseText`, CardBase texts |
+| Lootbox | Click to Open · Lose it · Upgraded! · Quality Increased · Bonus Reward | I2 `UI/Shop/Lootbox/TapToOpen`; scene `LoseText`, CardBase texts |
 | HUD | New Best! · compliments ("Double Flip!", "Perfect" …) · HIGHSCORE / PREVIOUS / DAILY AVERAGE | I2 / scene as today |
 | Pause | Paused · Resume | I2 `UI/Pause/PauseTitle`, `Resume` |
-| Tutorial | tutorial texts as today · Tap to Continue | scene / I2 as today |
+| Tutorial | tutorial texts as today · Click to Continue | scene / I2 as today |
 | Revive | Revive? · Continue · Almost new high score! · Challenge almost complete! · Bonus letter nearby! · Score milestone almost reached! | I2 `UI/Revive/*`, `UI/Continue` |
 
 ## 10. Acceptance checklist
@@ -946,8 +947,8 @@ Home was compared side by side with `docs/ui/ref/home.png` and brought closer:
     slot's bottom edge (trimmed by the chamfered mask), the "Preview" label in the same place on the other slots; the selected slot shows as the lit plate (its hexagon glow border is off).
 
 - Sides swapped (owner's markup): rubies and gems sit top-right, rubies first, anchored top-right. Since
-  2026-10-29 (owner's request) they stack in two rows of the same width, rubies over gems (`h.ruby` 1088, 20;
-  `h.gem` 1088, 66; both 160 × 40), and the challenge popups (`h.chpop`) moved down to y 112 under them. In each pill the figure comes first, right-aligned and shrinking from 22 to 14 to fit, and the
+  2026-10-29 (owner's request) they stack in two rows of the same width, gems over rubies since 2026-10-31
+  (`h.gem` 1088, 20; `h.ruby` 1088, 66; both 160 × 40), and the challenge popups (`h.chpop`) moved down to y 112 under them. In each pill the figure comes first, right-aligned and shrinking from 22 to 14 to fit, and the
   icon sits at the right end inside the pill: the original gem and ruby baked with a bloom of their own colour
   (`cur_gem`, `cur_ruby`, `tools/ui2-art.mjs`);
   the settings button, BONUS and the hexagon column (challenges, leaderboard, levels) sit top-left (x 26, anchored
@@ -959,7 +960,7 @@ Home was compared side by side with `docs/ui/ref/home.png` and brought closer:
     "Bonus Reward" on every card). `fitChildren` sets a child's scale once only; it pinned a lootbox card at the 1.5
     of its reveal, so the summary cards overlapped.
   - Lootbox: the summary grid and Claim are centred (`lx.overview` 230, `lx.claim` 530); the original bottom fade
-    spans the screen under the grid (it dims the chest, the cards stay lit); "Tap to open" sits under the chest
+    spans the screen under the grid (it dims the chest, the cards stay lit); "Click to open" sits under the chest
     (`lx.tap` y 652).
   - Level timer (`hd.timer` 400, 92, 480 x 75, the original's proportions): star times and level name on one line.
   - Star Rank: a level row's world banner covers the row (cut by its mask; inset since, see below); its stopwatch sits in the picture slot;
@@ -1088,9 +1089,58 @@ Home was compared side by side with `docs/ui/ref/home.png` and brought closer:
   the text (16, down to 15, then a second line) over a plain 5-high bar, then right to left the reward (fitted, no
   frame), the check and the hard icon. The bar was the slanted `S_Challenge_Fillbar` wedge, the reward a dot, and a
   long text spilled over the bar. Pause no longer shows its running challenges in landscape (owner's request).
-- Revive (18): the reason "Challenge almost complete!" sits over its challenge row under the panel (the two
-  overlapped); the countdown heart is a dark track under the accent fill with a white figure (it was black under a
+- Revive (18): the reason box under the panel ("Challenge almost complete!" and its challenge row, "Almost new high
+  score!") is not shown in landscape (owner's request, 2026-10-30; portrait shows it again); the countdown heart is a dark track under the accent fill with a white figure (it was black under a
   white fill, the figure grey on white).
+- Vehicles, a card's star to claim (`StarOverlay`, shown while a rank is unlocked and unseen; tapping the card claims
+  it): the original stretched a gold hexagon (`S_Gradient_Star_Overlay`) over the chamfered card, and the generic star
+  rule painted the white 3D star the world's accent, pink on gold. The overlay is now the card's own outline in the
+  gold chrome (`claimStarOverlay`, `src/ui2/layout.js`), the star gold and centred (40 on a tier slot, 64 on a
+  collection card).
+- Levels lost its panel, shade and ✕ once (owner's capture, the rows alone on the bare screen): the open / close
+  feedbacks fade those Images (`World Background Image`, the close button and its icon) and the close leaves them at
+  alpha 0, so a reopening that skips the open feedback shows only the rows. Opening and closing are instant, so while
+  the popup is up the layout keeps them at their open alpha (shade 65 %). Checked by playing the close feedback with
+  the popup open.
+- Rank Up (12, 2026-10-30, owner: "rearrange this screen"): the portrait sequence fades the title out when the star
+  moves up, which left a star with no heading; the title now stays. The x2 offer showed from the start, under the
+  reward reveal and on ranks that give no gems; it now waits for the rewards and shows only when one is gems
+  (otherwise "Click to continue" takes its place). The reward cards were black with a thin white border and a glow
+  behind the first card only (off-centre in the row); they are panel-framed square 190 × 190 cards (owner: square, so the picture is not distorted) without the glow, a
+  cosmetic's name over its type in the secondary colour, a currency's icon over its amount.
+- Gameplay texts (15, 2026-10-30, owner: "the texts in gameplay are too small"): the generic restyle scales every text
+  to .45 of its portrait size, so a compliment ("Daredevil!") came out at 15-22 and the flip score ("+3") at 21.6.
+  In landscape the compliments are title-font texts at 34 (normal, perfect), 40 (perfect, bigger) and 48 (extreme),
+  the world "Perfect" callout 30; the flip score steps 30 / 34 / 38 / 46 by flips (portrait keeps 70-120), its
+  "Perfect" 22; the run gem count 20.
+- Tutorial focus (17, 2026-10-30, owner: "it leaks"): the darkening around the focus (`Screen Darken`, a
+  `ScreenFill`) fills its screen rect `TutorialFocus`, which landscape holds to the 1280 × 720 design canvas, so a
+  window wider than 16:9 showed the game unlit at both sides. In landscape it fills the root `TutorialCanvas`.
+- Rank Up sequence (12, 2026-10-30, owner: "unlocking takes a lot of time; simpler and faster"): the popup lands open
+  with the new rank, each reward pops in with its skip feedbacks (no card flip, no 3 s build-up) and the offer or
+  "Click to continue" shows at once: about 1.2 s for two rewards instead of some 8 s. After the first rank-up (rank 1
+  to 2) the Star Rank track no longer opens by itself. A tutorial instruction over the popup ("Collect Stars to earn
+  new Cosmetics!") takes the place under the cards and "Click to continue" moves to the bottom (y 650).
+- Challenge claim to Rank Up (owner: "only this effect and the rank-up popup"): the popup opens right after the
+  claim burst; it no longer waits for the reward stars to fly to the rank bar (they land under it).
+  The Challenges popup the claim opened closes with the last rank-up popup.
+- Challenges (04) no longer opens by itself on the early ranks' returns home (owner: "confusing"); it opens by itself
+  only with a challenge to claim.
+- Claim Challenge tutorial ("Complete Challenges to collect Stars") is not shown (owner: "pointless"); it is marked
+  skipped on load.
+- Run gems glow: their material gets a gem-cyan emission over the bloom threshold.
+- "Tap" reads "Click" (owner's request, 2026-10-30): src/meta/data.js rewrites the loaded texts ("Click to
+  continue", "Click to Open"); every "Tap to ..." text of the scenes and prefabs comes from those terms. Portrait
+  shows "Click" too.
+- In-run challenge status (, 2026-10-30, owner: "only the text, centred at the bottom"): the
+   (completed / failed / progress) was left unplaced, a band some 4000 units wide across the
+  screen with its text off-centre. In landscape only its text shows, centred at the bottom (y 644, 22), in its status
+  colour; its frame, world icon and bar are off and its slide-in is not played. The HUD's layout and the popup's both
+  moved the shared container, so the popup is placed again whenever it is off.
+- Tutorial focus and instruction (17, 2026-10-30): a focus on a UI target takes the target's own size plus 12 units
+  (a circle stays round); a tutorial socket inside a challenge row frames the row. The steps' portrait sizes framed
+  a row in a band wider than the Challenges panel. The instruction is one line (it wrapped over the bottom buttons);
+  on the menu it sits between the popup panels and the bottom buttons (y 486, "Click to continue" y 528).
 
 Remaining differences, and why they stay:
 
@@ -1104,3 +1154,35 @@ Remaining differences, and why they stay:
 | BONUS under the star bar | under the high score; shown 3 s on Home unless the reward waits, hidden once claimed | owner's request; game state |
 
 `tools/ui2-check.mjs` after these changes: 22 states × 6 viewports, 132 captures, 0 failures; `npm run check` OK.
+
+### 12.3 Shop, tutorials and Home fixes (2026-10-30 / 31)
+
+Owner's captures, checked headless (`tools/qa`) with no console errors.
+
+- Shop, Daily Deal purchase: the card reveal filled the screen. Deal and RV-track reveals now show the card at
+  y 227 without its particle effects, under a darker shade. A Claim button appears about 0.6 s into the reveal, and
+  the card closes when it is pressed (`revealAndClaim`, `src/uiscripts/shop.js`). The RV-track reveal gets its own
+  green `UI2 Claim` button (535, 540, 210 × 56).
+- Shop, RV reward track: each segment fills to the middle of its reward cell (the last one to the bar's end). A
+  claimable cell has the gold overlay and its ping at the top-right corner. A claimed cell is fully covered by a dark
+  plate (`#05030c`, 90 %) and its value banner is hidden. The ad button no longer draws a second plate inside itself.
+- Shop confirmations: the buy button is disabled and its text greyed while the player cannot afford the item.
+- Tooltips draw above popups (sort 109), as one centred line of 18 on a pill.
+- Gems and rubies glow everywhere, as on Home: `S_Icon_SoftCurrency` / `S_Icon_HardCurrency` Images draw the baked
+  `cur_gem` / `cur_ruby` sprites, and inline TMP sprites use them through `TMP_Text.spriteOverride`.
+- Rank Up rewards: the picture is a 124 square that keeps its aspect (it was stretched).
+- Star Rank track: the ✕ shows and works during the opening animation (`EventSystem.blockedExcept`).
+- Locked Home tab: dimmed, with a padlock in place of "Needs 3 ★". Tapping it shows the tooltip "Needs Star Rank N
+  to unlock".
+- Shop tutorial (FTUE_Shop):
+  - The hands are 72 px. The press hand repeats its press every second (driven by time; the Animator clips do not
+    play). Its finger points at the middle of the Shop button (`UI2 Tutorial Center`).
+  - The instruction text sits above the focus, at most 24 px.
+  - The Large Chest step lights the whole Chests row, and the darkening covers the screen to its right edge.
+  - A hand hides for good once the tutorial hides it. It used to linger, which put the buy step's hand on the chest.
+  - The chest opening's "Tap to open" shows a press hand at the middle of the chest.
+  - The tutorial waits while a Home popup is open (Challenges, Timed Levels, World Stats, Bonus claim). In landscape
+    these popups cover the tab bar, so a tutorial started under them could not be clicked.
+- Home currencies: gems on top, rubies below (owner's request, 2026-10-31).
+- Home "New Best!" (`h.hsNew` 540, 140, 200 × 24): gold text 18 under the high score, with no plate (it was a small
+  gold hexagon to the right of the figure). It shares that line with BONUS and is hidden while BONUS shows.

@@ -6,6 +6,7 @@ import { Physics2D } from '../engine/physics2d.js';
 import { Instantiate, PrefabRef, getRuntimeSO } from '../engine/instantiate.js';
 import { Assets, loadPrefabDeep, getPrefabJson, loadWantedMeshes } from '../engine/assets.js';
 import { AudioService } from '../engine/audio.js';
+import { Render } from '../engine/render.js';
 import { Game, RunMode, EndState, DeathReason, StatisticsTrackerState, RevivalState, ReviveQualification, ReviveQualificationData } from './state.js';
 import { BaseChunkManager, RoadChunkManager, ChunkCollection, SpawnStyle, EndlessChunkProcess } from './chunks.js';
 import { CameraRig } from './camera.js';
@@ -19,6 +20,18 @@ import { CardService, CardType, RANK_TYPES } from '../meta/cards.js';
 import { ChallengeManager } from '../meta/challenges.js';
 import { LevelUnlocks } from '../meta/worlds.js';
 import { Tutorials } from '../meta/tutorials.js';
+
+/** The run's gems glow (owner's request, 2026-10-30): their lit white material, with no emission, stayed under the
+ *  bloom threshold (1) and read as grey diamonds next to the neon road. A gem-cyan emission lifts them over it. */
+function glowingGems() {
+  const id = 'Material/MT_SoftCurrency2';
+  const json = Assets.materials?.[id];
+  if (!json || json.keywords?.includes('_EMISSION')) return;
+  json.keywords = [...(json.keywords || []), '_EMISSION'];
+  json.colors = { ...json.colors, _EmissionColor: [0.45, 1.25, 1.6, 1] };
+  // a material built before the patch (cached by id) is rebuilt with it
+  for (const k of [...Render.materialCache.keys()]) if (k.startsWith(id + '|')) Render.materialCache.delete(k);
+}
 
 // ---------------------------------------------------------------- worlds / cosmetics
 
@@ -366,6 +379,7 @@ export class GameManager extends MonoBehaviour {
     rs.SetNewMode(mode);
     Game.visualSettings = mode.Settings.VisualSettings;
     Game.roadPieceSettings = getRuntimeSO('MonoBehaviour/RoadPieceSettings');
+    glowingGems();
     Game.softCurrencyPool = new SoftCurrencyPool(new PrefabRef(Assets.manifest.softCurrencyPickup));
 
     const mk = (name, Type, pos) => {

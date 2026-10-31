@@ -546,6 +546,9 @@ const isWhite = (c) => c === 32 || c === 9 || c === 0x200b || c === 0xa0 || c ==
 export class TMP_Text extends Graphic {
   static typeName = 'TMP_Text';
 
+  /** (spriteName, text) => {texture, uv: [u0, v0, u1, v1], scale} | null: a skin's replacement for an inline sprite */
+  static spriteOverride = null;
+
   constructor() {
     super();
     this.m_text = '';
@@ -581,6 +584,7 @@ export class TMP_Text extends Graphic {
     this._layout = null;
     this._layoutKey = '';
     this._spriteMesh = new UIMesh();
+    this._overrideMeshes = new Map(); // texture -> UIMesh of the sprites TMP_Text.spriteOverride redraws
     this.textInfo = { characterCount: 0, lineCount: 0, characterInfo: [] };
   }
 
@@ -1243,6 +1247,7 @@ export class TMP_Text extends Graphic {
   OnPopulateMesh(m) {
     const sm = this._spriteMesh;
     sm.clear();
+    for (const om of this._overrideMeshes.values()) om.clear();
     const L = this.getLayout();
     if (!m.extra) m.extra = [];
     if (!L.glyphs.length) return;
@@ -1288,6 +1293,17 @@ export class TMP_Text extends Graphic {
           const y1 = oy + g.y + sg.by * g.scale;
           const x1 = x0 + sg.w * g.scale;
           const y0 = y1 - sg.h * g.scale;
+          // a skin may draw a sprite from another texture: a square `scale` times the glyph's size, on its centre
+          const ov = TMP_Text.spriteOverride?.(g.sprite.entry.char.name, this);
+          if (ov) {
+            let om = this._overrideMeshes.get(ov.texture);
+            if (!om) this._overrideMeshes.set(ov.texture, (om = new UIMesh()));
+            const cx = (x0 + x1) / 2;
+            const cy = (y0 + y1) / 2;
+            const h = (Math.max(x1 - x0, y1 - y0) / 2) * ov.scale;
+            om.addQuad(cx - h, cy - h, cx + h, cy + h, new Color(1, 1, 1, c.a), ov.uv[0], ov.uv[1], ov.uv[2], ov.uv[3]);
+            continue;
+          }
           const [tw, th] = g.sprite.asset.texSize;
           const sc = g.sprite.tint || this.m_tintAllSprites ? c : new Color(1, 1, 1, c.a);
           sm.addQuad(x0, y0, x1, y1, sc, sg.rx / tw, sg.ry / th, (sg.rx + sg.rw) / tw, (sg.ry + sg.rh) / th);
@@ -1350,6 +1366,7 @@ export class TMP_Text extends Graphic {
     if (m.idx.length) calls.push({ mesh: m, texture: this.fontData.texture, sdf: this.renderMaterial });
     const sm = this._spriteMesh;
     if (sm.idx.length && sm.texture) calls.push({ mesh: sm, texture: sm.texture });
+    for (const [texture, om] of this._overrideMeshes) if (om.idx.length) calls.push({ mesh: om, texture });
     return calls;
   }
 }

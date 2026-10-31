@@ -128,8 +128,11 @@ export class RenderTextureCreator extends MonoBehaviour {
     if (!socket) return;
     socket.SetParent(null, false);
     socket.localScale = new THREE.Vector3(1000, 1000, 1000);
-    const w = Math.max(1, UISystem.width);
-    const h = Math.max(1, UISystem.height);
+    // screen sized like Unity's, but at most 2048 px on the long side: a full-resolution 4x MSAA target on a large or
+    // high-DPI screen is costly and may fail outright (the RawImage stretches it over the screen either way)
+    const fit = Math.min(1, 2048 / Math.max(1, UISystem.width, UISystem.height));
+    const w = Math.max(1, Math.round(UISystem.width * fit));
+    const h = Math.max(1, Math.round(UISystem.height * fit));
     this.texture = new THREE.WebGLRenderTarget(w, h, { colorSpace: THREE.NoColorSpace, samples: 4 });
     if (this.rawImage) {
       this.rawImage.texture = this.texture.texture;

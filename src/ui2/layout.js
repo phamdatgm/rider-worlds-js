@@ -6,6 +6,8 @@ import { GameObject, MonoBehaviour, awakeObject, World } from '../engine/scene.j
 import { UISystem, Canvas, CanvasGroup, GraphicRaycaster } from '../ugui/canvas.js';
 import { RectTransform, bumpLayout } from '../ugui/rect.js';
 import { Image, Mask, RectMask2D } from '../ugui/graphic.js';
+import { Button } from '../ugui/selectable.js';
+import { TextMeshProUGUI } from '../ugui/tmp.js';
 import { UISprites } from '../ugui/sprites.js';
 import { Meta } from '../meta/data.js';
 import { rects, scenes } from './rects.js';
@@ -324,6 +326,15 @@ function modal(ctx,t,name){
 
 /** A challenge slot's rewards (spawned per challenge by UpdateRewards, sometimes a cluster): each reward's opaque
  *  picture fitted into its share of the w × h column, at most `size` high. */
+/** the open Rank Up popup's root, and whether a tutorial instruction is up: the two share the space under the cards */
+function rankUpShown(){
+  for(const c of contexts)if(/RankupPopup/.test(c.root._prefabId||'') && !c.root._destroyed && c.root.activeInHierarchy)return c.root;
+  return null;
+}
+function tutorialTextShown(){
+  for(const c of contexts)if(c.root.name==='TutorialUtility' && !c.root._destroyed)return !!c.root.transform.Find('TutorialCanvas/UI Container/TutorialText')?.gameObject.activeInHierarchy;
+  return false;
+}
 function slotRewards(ctx,rewards,w,h,size){
   if(!rewards)return;
   ctx.onEveryFrame.push(()=>{
@@ -338,6 +349,14 @@ function slotRewards(ctx,rewards,w,h,size){
       if(t.anchorMin.x!==0 || Math.abs(p.x-f[0])>.01 || Math.abs(p.y+f[1])>.01 || Math.abs(d.x-f[2])>.01 || Math.abs(d.y-f[3])>.01){icon.preserveAspect=false;local(t,...f);}
     });
   });
+}
+/** A card's star waiting to be claimed (a rank unlocked and unseen): the original stretches a gold hexagon over the
+ *  card; here it is the card's own chamfered outline in the gold chrome. The 3D star is white art, kept gold on it
+ *  (the generic star rule paints stars the world's accent, pink on gold). */
+function claimStarOverlay(ctx,t){
+  const plate=t.Find('StarOverlay')?.gameObject.GetComponent('Image');if(plate)skin(plate,'gold','panel');
+  const star=t.Find('StarOverlay/StarImage')?.gameObject.GetComponent('Image');
+  if(star)ctx.onEveryFrame.push(()=>{const c=color('#ffd84a',star.color.a);if(!star.color.equals(c))star.color=c;});
 }
 /** a plain progress bar: the original mask is a slanted 9-slice (S_Challenge_Fillbar), a wedge at row heights */
 function plainBar(t){
@@ -594,7 +613,7 @@ function configure(ctx){
     }
     const gem=find(top+'SoftCurencyBar'),gr=rects['hd.gem'];
     if(gem){const plate=gem.gameObject.GetComponent('Image')||gem.gameObject.AddComponent(Image);plate.raycastTarget=false;skin(plate,'panel','pill');
-      frame(gem.Find('Image'),{x:gr.x+12,y:gr.y+3,w:30,h:gr.h-6,anchor:gr.anchor});frame(gem.Find('Text (TMP)'),{x:gr.x+46,y:gr.y+2,w:gr.w-60,h:gr.h-4,anchor:gr.anchor},17);}
+      frame(gem.Find('Image'),{x:gr.x+12,y:gr.y+3,w:30,h:gr.h-6,anchor:gr.anchor});frame(gem.Find('Text (TMP)'),{x:gr.x+46,y:gr.y+2,w:gr.w-60,h:gr.h-4,anchor:gr.anchor},20);}
     const sc=rects['hd.score'],score=find(top+'ScoreBar/Score Display - Gameplay');
     frame(score?.Find('Value text container'),sc);frame(score?.Find('Value text container/Score Text'),sc,46);
     // "New Best!" is a small gold plate above the score (hd.best), not the original 432-wide banner
@@ -602,7 +621,7 @@ function configure(ctx){
     map(best,'hd.best');frame(best?.Find('ImageBanner'),br);frame(best?.Find('NewText (TMP)'),br,br.fs);
     skin(best?.Find('ImageBanner')?.gameObject.GetComponent('Image'),'gold');
     const bestText=best?.Find('NewText (TMP)')?.gameObject.GetComponent('TextMeshProUGUI');
-    onFrame.push(()=>{textStyle(score?.Find('Value text container/Score Text')?.gameObject.GetComponent('TextMeshProUGUI'),46,true);textStyle(gem?.Find('Text (TMP)')?.gameObject.GetComponent('TextMeshProUGUI'),17,true);
+    onFrame.push(()=>{textStyle(score?.Find('Value text container/Score Text')?.gameObject.GetComponent('TextMeshProUGUI'),46,true);textStyle(gem?.Find('Text (TMP)')?.gameObject.GetComponent('TextMeshProUGUI'),20,true);
       if(bestText){textStyle(bestText,br.fs,true,tokens.gold);bestText.enableWordWrapping=false;bestText.horizontalAlignment=2;bestText.verticalAlignment=512;}});
     // The level timer keeps its own proportions (870 x 136, hd.timer 480 x 75): its star times and level name stay on
     // one line (squeezed, a 14 px label broke into a column of letters).
@@ -615,6 +634,16 @@ function configure(ctx){
     const closeCanvas=t.Find('Timed Level Close')?.gameObject.GetComponent('Canvas');
     if(closeCanvas){closeCanvas.overrideSorting=true;closeCanvas.sortingOrder=105;}
     for(const n of ['Timed Level Close/Overlay','Timed Level Close/Overlay/Shadow Bottom'])off(ctx,t.Find(n)?.gameObject.GetComponent('Image'));
+    // The open / close feedbacks fade the shade, the panel and the close (Image alpha). The close leaves them at 0, and
+    // a reopening that skips the open feedback showed the rows alone on the bare screen (owner's capture). Opening
+    // and closing are instant, so while the popup is up they are kept at their open alpha.
+    const shade=t.Find('UI2 Shade')?.gameObject.GetComponent('Image');
+    const opaque=['Background/World Background Image','Timed Level Close/Overlay/CloseButton','Timed Level Close/Overlay/CloseButton/Icon'].map(n=>t.Find(n)?.gameObject.GetComponent('Image')).filter(Boolean);
+    ctx.onEveryFrame.push(()=>{
+      if(!menu.gameObject.activeInHierarchy)return;
+      if(shade && Math.abs(shade.color.a-.65)>.01)shade.color=color('#000000',.65);
+      for(const img of opaque)if(img.color.a<1)img.color=img.color.withAlpha(1);
+    });
     const total=t.Find('TotalStarsBar'),r=rects['l.total'];
     // text only beside the title, no plate (owner's request)
     ctx.show(total);off(ctx,total?.gameObject.GetComponent('Image'));
@@ -756,7 +785,9 @@ function configure(ctx){
       band(t,'MaskGroup/FillbarBackground','band_slot_bottom');band(t,'MaskGroup/FillbarBackground/Fillbar','band_slot_bottom');
       // "Preview" sits where the count bar is on the first slot
       L('MaskGroup/PreviewText',[3,H-bh-3,W-6,bh]);L('MaskGroup/PreviewText/PreviewText',[6,0,W-18,bh],15);
+      L('StarOverlay',[0,0,W,H]);L('StarOverlay/StarImage',[W/2-20,H/2-20,40,40]);
     });
+    claimStarOverlay(ctx,t);
     const icon=img('MaskGroup/Icon');if(icon)keepFitted(ctx,icon,()=>[14,5,r.w-28,r.h-25]);
     ctx.onEveryFrame.push(()=>{const p=skinCard.GetComponent('Image'),sel=t.Find('MaskGroup/SelectedOverlay')?.gameObject.activeSelf;if(p)p._ui2Active=!!sel;});
   }
@@ -787,13 +818,23 @@ function configure(ctx){
     // Free Rewards track (owner's mockup): one bar over the four rewards, each step number centred under its reward
     for(const track of all('UI_RVRewardTrack')){
       const item=rects['sp.freeItem'],bar=rects['sp.freeBar'],pitch=(bar.w-item.w)/3;
+      // Each step's segment of the bar runs from the previous reward's middle (the bar's start for the first) to its own
+      // reward's middle, so the fill reaches a reward as it unlocks; the last segment's track runs on to the bar's end.
+      // (The fillers kept the prefab's left inset: the first ad lit a short dash in the middle of the first segment.)
+      const mid=i=>item.x+i*pitch+item.w/2;
       track.rewardEntries.forEach((entry,i)=>{
-        const x=item.x+i*pitch;
-        frame(entry.transform,[x,bar.y,i<3?pitch:item.w,bar.h]);
+        const x=item.x+i*pitch,from=i?mid(i-1):bar.x;
+        frame(entry.transform,[from,bar.y,(i<3?mid(i):bar.x+bar.w)-from,bar.h]);
+        frame(entry.transform.Find('Filler'),[from,bar.y,mid(i)-from,bar.h]);
         frame(entry.RewardSocket,[x,item.y,item.w,item.h]);
         frame(entry.transform.Find('Indicator'),[x+item.w/2-20,item.y+item.h+6,40,28]);
         frame(entry.transform.Find('Indicator/Number (TMP)'),[x+item.w/2-20,item.y+item.h+6,40,28],15);
       });
+      // the ad icon sits inside the hex frame's inner edge (the prefab's 100/160 overlaps it at this size)
+      const ad=rects['sp.ad'],s=Math.round(ad.w*.5);
+      frame(track.transform.Find('TrackCombined/RV_Track_AdButton/Ad Icon'),[ad.x+(ad.w-s)/2,ad.y+(ad.h-s)/2,s,s]);
+      // one hex frame, the overlay's gold one: the button's own hex sprite showed around it (it still takes the taps)
+      const adImg=track.adButton?.gameObject.GetComponent('Image');if(adImg)adImg.getDrawCalls=()=>[];
     }
     // The section headers are the panels of the shop (owner's mockup): the title at the top left with its countdown
     // beside it, the section's items laid over the plate (the header draws first in its section).
@@ -860,7 +901,9 @@ function configure(ctx){
       L('GameNotification',[W-17,-5,22,22]);
       band(root.transform,'MaskGroup/NameObject','band_card_top');band(root.transform,'MaskGroup/UnlocksAt','band_card_unlock');
       band(root.transform,'MaskGroup/FillbarBackground','band_card_bottom');band(root.transform,'MaskGroup/FillbarBackground/Fillbar','band_card_bottom');
+      L('StarOverlay',[0,0,W,H]);L('StarOverlay/StarImage',[W/2-32,H/2-32,64,64]);
     });
+    claimStarOverlay(ctx,root.transform);
     const icon=root.transform.Find('MaskGroup/Icon')?.gameObject.GetComponent('Image');
     // locked cards still show their picture (owner's request): dimmed grey under a lighter overlay, not a silhouette
     const card=root.components.find(c=>c.Card!==undefined && 'lockedOverlay' in c);
@@ -1018,6 +1061,30 @@ function configure(ctx){
   // Home challenge progress (owner's markup, 2026-10-29): a row plate under the currency pills (h.chpop) with the
   // challenge over its bar and the reward on the right, instead of a band across the lower right of the podium. It
   // fades in and out in place: the original's 50-unit rise ran into the pills.
+  // The in-run challenge status (completed / failed / progress): only its text, centred at the bottom of the screen
+  // (owner's request, 2026-10-30). Unplaced it stretched to some 4000 units, a black band across the top with the
+  // text off-centre. The frame, world icon and bar are not shown; the text keeps its status colour (failed is red).
+  if(/ChallengeStatus Popup/.test(pref)){
+    const t=root.transform,r={...rects['hd.chstatus'],anchor:'bottom'};
+    frame(t,r);
+    // the container belongs to the HUD's layout: as this popup's neutral frame too, the two layouts moved it in turn
+    // and the popup flickered between its place and the stretched band
+    for(let p=t.parent;p && !p.gameObject.GetComponent('Canvas')?.isRootCanvas;p=p.parent)if(p.isRectTransform)ctx.records.set(p,{t:p,r:null,neutral:true,skip:true});
+    off(ctx,t.gameObject.GetComponent('Image'));
+    hide(t.Find('Status/Icon'));hide(t.Find('Progress/FillBarMask'));
+    for(const n of ['Status/Value','Progress/Value'])frame(t.Find(n),r);
+    for(const f of t.gameObject.GetComponents('MMFeedbackPosition'))f.Active=0;
+    onFrame.push(()=>{for(const n of ['Status/Value','Progress/Value']){
+      const tx=t.Find(n)?.gameObject.GetComponent('TextMeshProUGUI');if(!tx)continue;
+      const c=tx.color;textStyle(tx,r.fs,true);tx.color=c;tx.enableWordWrapping=false;tx.horizontalAlignment=2;tx.verticalAlignment=512;tx.m_margin=[0,0,0,0];
+    }});
+    // something between this popup's layouts still widens it back to the band: placed again whenever it is off
+    const texts=['Status/Value','Progress/Value'].map(n=>t.Find(n)).filter(Boolean);
+    ctx.onEveryFrame.push(()=>{
+      const cv=rootCanvas(t),u=cv?.scaleFactor||1,c=t.GetWorldCorners();
+      if(Math.abs(c[2].x-c[0].x-r.w*u)>1){place(t,r);for(const x of texts)place(x,r);}
+    });
+  }
   if(/ChallengeSlotReadOnlyPopup/.test(pref)){
     const t=root.transform,W=rects['h.chpop'].w,H=rects['h.chpop'].h,R=52;
     rel(t,[0,0,W,H]);
@@ -1051,16 +1118,57 @@ function configure(ctx){
   }
   if(/ShopConfirmation/.test(pref)){
     modal(ctx,root.transform,'Shop confirmation');
-    frame(root.transform.Find('Popup'),[40,460,1200,230]);
-    skin(root.transform.Find('Popup')?.gameObject.GetComponent('Image'));
-    for(const [names,id] of [[['Item icon'],'sc.icon'],[['Title','Title (TMP)'],'sc.title'],[['Rarity','Rarity (TMP)'],'sc.rarity'],[['Info Container'],'sc.info'],[['BuyButton'],'sc.buy'],[['CloseButton'],'sc.close']])for(const n of names)for(const t of named(n))map(t,id);
+    // owner's markup: a compact column in the middle (the close button at its corner, the name and rarity on top, the
+    // picture, the price at the bottom) instead of the full-width bottom band
+    const popup=root.transform.Find('Popup');
+    frame(popup,[480,120,320,412]);
+    skin(popup?.gameObject.GetComponent('Image'));
+    for(const n of ['Title','Title (TMP)','Rarity','Rarity (TMP)'])for(const t of named(n)){
+      const text=t.gameObject.GetComponent('TextMeshProUGUI');if(text)onFrame.push(()=>{text.enableWordWrapping=false;text.horizontalAlignment=2;text.verticalAlignment=512;text.m_margin=[0,0,0,0];});
+    }
+    // (the reveal card's banner has a "Rarity (TMP)" of its own: the card is framed below)
+    for(const [names,id] of [[['Item icon'],'sc.icon'],[['Title','Title (TMP)'],'sc.title'],[['Rarity','Rarity (TMP)'],'sc.rarity'],[['Info Container'],'sc.info'],[['BuyButton'],'sc.buy'],[['CloseButton'],'sc.close']])for(const n of names)for(const t of named(n))if(!t.gameObject.GetComponentInParent('UI_CardBase'))map(t,id);
+    // a daily deal shows its card (not the item icon) in the picture box (it stood over the title, half off the popup)
+    const ic=rects['sc.icon'];for(const t of named('UI_MetaCard - Shop'))frame(t,[ic.x+5,ic.y+5,ic.w-10,ic.h-10]);
+    // the deal's amount is a line of its own under the card (over the picture it was hard to read)
+    for(const t of named('ShopAmount (TMP)')){
+      frame(t,[ic.x-45,ic.y+ic.h,ic.w+90,30],22);const text=t.gameObject.GetComponent('TextMeshProUGUI');
+      if(text)onFrame.push(()=>{text.enableWordWrapping=false;text.horizontalAlignment=2;text.verticalAlignment=512;text.m_margin=[0,0,0,0];});
+    }
+    // without the chest's "Contains" line (a daily deal) the price comes up under the amount and the popup shortens
+    const info=named('Info Container')[0],buy=named('BuyButton')[0],deal=root.GetComponent('DailyDealShopItemConfirmation');
+    // the shop tutorial's last step ("Buy the Large Chest") frames the price button (its socket sat on the picture)
+    for(const t of named('TutorialSocket'))t._ui2Focus=buy;
+    const shade=(root.transform.Find('Background')||root.transform.Find('UI2 Shade'))?.gameObject.GetComponent('Image');
+    ctx.onEveryFrame.push(()=>{
+      const pr=ctx.records.get(popup),br=ctx.records.get(buy);if(!pr || !br)return;
+      // the bought deal's reveal: the Claim button under the card's count bar (the card is framed with the lootbox cards),
+      // the shop darker behind it (its rows showed through around the card)
+      if(deal?.claiming || deal?.isDoingSequence){
+        if(shade && shade.color.a<.85)shade.color=shade.color.withAlpha(Math.min(.85,shade.color.a+.06));
+        if(deal.claiming && br.r.y!==540){br.r=asRect([535,540,210,56]);place(buy,br.r);}
+        return;
+      }
+      const has=!!info?.gameObject.activeInHierarchy,by=has?rects['sc.buy'].y:ic.y+ic.h+36,h=by+rects['sc.buy'].h+20-120;
+      if(br.r.y!==by){br.r={...rects['sc.buy'],y:by};place(buy,br.r);}
+      if(pr.r.h!==h){pr.r=asRect([480,120,320,h]);place(popup,pr.r);}
+    });
   }
   if(/DailyDealShopRefreshPopUp/.test(pref)){
-    modal(ctx,root.transform,'Refresh');frame(root.transform.Find('SettingsPopup'),[410,126,460,220]);
+    // owner's markup: one compact column (title, count, question, the ad button, the ruby button under it)
+    modal(ctx,root.transform,'Refresh');frame(root.transform.Find('SettingsPopup'),[480,136,320,276]);
     for(const [n,id] of [['Header (TMP)','sr.title'],['RefreshCount','sr.count'],['info','sr.info'],['AdButton','sr.ad']])for(const t of named(n))map(t,id);
-    // The original ruby alternative and cancel button remain available inside the approved popup panel.
-    frame(root.transform.Find('SettingsPopup/Answers/HardCurrencyButton'),[740,276,100,50],18);
-    frame(root.transform.Find('SettingsPopup/X Button'),[826,108,52,46]);
+    const ad=rects['sr.ad'];
+    frame(root.transform.Find('SettingsPopup/Answers/HardCurrencyButton'),[ad.x,ad.y+ad.h+12,ad.w,ad.h],20);
+    frame(root.transform.Find('SettingsPopup/X Button'),[766,118,52,48]);
+    for(const n of ['Header (TMP)','RefreshCount','info'])for(const t of named(n)){
+      const text=t.gameObject.GetComponent('TextMeshProUGUI');if(text)onFrame.push(()=>{text.enableWordWrapping=false;text.horizontalAlignment=2;text.verticalAlignment=512;text.m_margin=[0,0,0,0];});
+    }
+  }
+  if(/RankupPopup|RankUpReward_/.test(pref)){
+    // Coffee's UIParticle bakes its systems whatever their renderer's flag (it turns the renderers off itself, and these
+    // prefabs were saved that way); the port skips a disabled renderer, so the rank up showed no glow, poof or sparks
+    for(const u of root.GetComponentsInChildren('UIParticle',true))for(const ps of u.particles)if(ps.renderer)ps.renderer.enabled=true;
   }
   if(/RankupPopup/.test(pref)){
     const canvas=root.GetComponent('Canvas')||root.AddComponent(Canvas);
@@ -1069,22 +1177,75 @@ function configure(ctx){
     for(const [n,id] of [['Background','ru.bg'],['RankUp (TMP)','ru.title'],['LevelBaseStar','ru.star'],['TapToContinue (TMP)','ru.tap']])for(const t of named(n))map(t,id);
     map(find('Container/DoubleReward RV/Button'),'ru.rv');
     skin(find('Container/DoubleReward RV/Button')?.gameObject.GetComponent('Image'),'gold');
+    // The title stays over the star (the portrait sequence fades it out when the star moves up to make room), and the
+    // x2 offer waits for the rewards: it was shown from the start, under the reveal and on ranks without gems.
+    // Without gems "Tap to continue" moves up into the offer's place under the cards.
+    const pop=root.GetComponent('PlayerRankUpPopupUI'),title=find('Container/RankBox/RankUp (TMP)')?.gameObject.GetComponent('TextMeshProUGUI');
+    const tap=find('Container/TapToContinue (TMP)');
+    ctx.onEveryFrame.push(()=>{
+      if(title && title.color.a<1)title.color=title.color.withAlpha(1);
+      const rec=tap && ctx.records.get(tap);
+      // (at the bottom while a tutorial instruction takes its place)
+      if(rec){const y=tutorialTextShown()?650:pop?.spawnedFeedbacks?rects['ru.tap'].y:rects['ru.rv'].y+13;if(rec.r.y!==y){rec.r={...rects['ru.tap'],y};place(tap,rec.r);}}
+      const rv=pop?.rvContainer?.gameObject;if(!rv?.activeSelf)return;
+      const shown=pop.rewardContainer?.children.filter(c=>/^RankUpReward_/.test(c.name)).length||0;
+      if(!pop.spawnedFeedbacks || pop.ShownRewards<shown || pop.rvWatched)rv.SetActive(false);
+    });
   }
   if(/RankUpReward_/.test(pref)){
     // the rewards of one rank sit side by side, centred under the star (wireframe 12)
-    frame(root.transform,rects['ru.reward']);
-    // a cosmetic's name and type each get a line under the picture (scaled down they shared one 25 px band)
-    const front=root.transform.Find('Back/CardFront');
+    const t=root.transform,{w:W,h:H}=rects['ru.reward'];
+    frame(t,rects['ru.reward']);
+    // a themed card: the front takes the panel frame; the white card border, the dark name banner and the glow (one
+    // card lit, off-centre in the row) are not drawn
+    skin((t.Find('Back/CardFront')||t.Find('Card Back/Card Front'))?.gameObject.GetComponent('Image'));
+    for(const n of ['Glow','Back/CardFront/Border','Back/CardFront/TextUnderlay','Card Back/Card Front/Border'])off(ctx,t.Find(n)?.gameObject.GetComponent('Image'));
+    // a cosmetic's picture over its name and, in the secondary colour, its type; a currency's icon over its amount
+    const front=t.Find('Back/CardFront');
     if(front){
-      rel(front.Find('Icon'),[20,6,200,62]);rel(front.Find('TextUnderlay'),[2,70,236,38]);
-      rel(front.Find('TextUnderlay/Name (TMP)'),[0,1,236,18],15);rel(front.Find('TextUnderlay/Type (TMP)'),[0,19,236,17],15);
+      // The picture keeps its shape: a square centred over the name (the art is a 256 px square with the cosmetic across
+      // its middle, so its clear top and bottom may overhang). Stretched to the wide band a vehicle came out flattened,
+      // and the reveal's 1.5x punch about the top-left pivot left it small and off to the left.
+      const S=Math.min(W-24,H-58);rel(front.Find('Icon'),[(W-S)/2,(H-50-S)/2,S,S]);rel(front.Find('TextUnderlay'),[0,H-50,W,44]);
+      const icon=front.Find('Icon'),pic=icon?.gameObject.GetComponent('Image');
+      if(pic)onFrame.push(()=>{pic.preserveAspect=true;});
+      if(icon)ctx.onEveryFrame.push(()=>{if(icon.localScale.x!==1)icon.localScale=new THREE.Vector3(1,1,1);});
+      rel(front.Find('TextUnderlay/Name (TMP)'),[8,2,W-16,22],17);rel(front.Find('TextUnderlay/Type (TMP)'),[8,24,W-16,18],15);
+      onFrame.push(()=>{
+        for(const [n,size,hex] of [['Name (TMP)',17,tokens.text],['Type (TMP)',15,tokens.secondary]]){
+          const tx=front.Find('TextUnderlay/'+n)?.gameObject.GetComponent('TextMeshProUGUI');if(!tx)continue;
+          textStyle(tx,size,false,hex);tx.enableWordWrapping=false;tx.horizontalAlignment=2;tx.verticalAlignment=512;tx.m_margin=[0,0,0,0];
+        }
+      });
+    }
+    const coin=t.Find('Card Back/Card Front');
+    if(coin){
+      rel(coin.Find('Icon'),[(W-96)/2,(H-48-96)/2,96,96]);rel(coin.Find('Text (TMP)'),[0,H-48,W,38],28);
+      const icon=coin.Find('Icon')?.gameObject.GetComponent('Image');if(icon)icon.preserveAspect=true;
     }
     ctx.onEveryFrame.push(()=>{
       const rec=ctx.records.get(root.transform),p=root.transform.parent;if(!rec || !p)return;
-      const row=p.children.filter(c=>/^RankUpReward_/.test(c.name) && c.gameObject.activeSelf),i=row.indexOf(root.transform),w=rects['ru.reward'].w,gap=20;
+      const row=p.children.filter(c=>/^RankUpReward_/.test(c.name) && c.gameObject.activeSelf),i=row.indexOf(root.transform),w=rects['ru.reward'].w,gap=24;
       const x=640-(row.length*w+(row.length-1)*gap)/2+Math.max(0,i)*(w+gap);
       if(rec.r.x!==x){rec.r={...rects['ru.reward'],x};place(root.transform,rec.r);}
     });
+  }
+  // Gameplay callouts (owner: "too small", 2026-10-30). The generic restyle scales a text to .45 of its portrait size
+  // (a pooled compliment came out at 15), and the flip score kept its portrait steps (70-120) or the scaled 21.6.
+  const callout={'Compliment Floater - Normal':34,'Compliment Floater - Perfect':34,'Compliment Floater - Perfect - Bigger':40,'Compliment Floater - Extreme Perfect':48,'Compliment World Floater - Perfect Callout':30}[pref.replace(/^GameObject\//,'')];
+  if(callout){
+    const tx=root.transform.Find('Text (TMP)')?.gameObject.GetComponent('TextMeshProUGUI');
+    if(tx){
+      onFrame.push(()=>{const c=tx.color;textStyle(tx,callout,true);tx.color=c;tx.enableWordWrapping=false;});
+      ctx.onEveryFrame.push(()=>{if(tx.fontSize!==callout)tx.fontSize=callout;});
+    }
+  }
+  for(const j of all('JumpScoreText')){
+    // the flip steps in landscape; portrait keeps the serialized ones
+    let steps=j.sizes;const land=[30,34,38,46];
+    Object.defineProperty(j,'sizes',{configurable:true,get:()=>UI2.landscape?land:steps,set:v=>{steps=v;}});
+    const tx=j.gameObject.GetComponent('TextMeshProUGUI'),perfect=j.transform.Find('Perfect Display')?.gameObject.GetComponent('TextMeshProUGUI');
+    onFrame.push(()=>{if(tx && tx.fontSize<land[0])tx.fontSize=land[0];if(perfect)perfect.fontSize=22;});
   }
   // Shop items (owner's mockup): the small chest sits at the right of the Free Rewards panel, the large one fills the
   // Chests panel, the daily deals are three wide cards. Each prefab keeps its own purchase and payment components.
@@ -1116,11 +1277,18 @@ function configure(ctx){
       frame(sticker,[x+104,y-10,w-208,20]);tf(ui.stickerText?.transform,[x+104,y-10,w-208,20],15,2);
       frame(root.transform.Find('GameNotification'),[x+w-19,y-5,22,22]);
       off(ctx,overlay);
+      // the amount under the name (on the small picture it covered the count bar's "Complete")
+      tf(ui.metaCard?.transform.Find('ShopAmount (TMP)'),[x+104,y+74,120,26],18);
+      // a bought deal dims the whole card: the overlay's portrait sprite kept its aspect, a dark box mid card
+      const sold=root.transform.Find('Purchased Overlay')?.gameObject.GetComponent('Image');
+      if(sold){sold.raycastTarget=false;skin(sold);onFrame.push(()=>{sold.preserveAspect=false;sold.color=color('#05030c',.6);});}
     }else if(/Large/.test(root.name) || i>0){
       const {x,y,w,h}=rects['sp.chestL'];
       frame(root.transform,[x,y,w,h]);
       // the gold plate is the Chests panel (its header): the item's own background only catches the clicks
       frame(ui.backgroundImage?.transform,[x,y,w,h]);if(ui.backgroundImage)ui.backgroundImage.getDrawCalls=()=>[];
+      // the shop tutorial's focus frames that whole plate (TutorialUtility below)
+      root.transform._ui2Focus=()=>root.transform.parent?.parent?.Find('Header');
       frame(overlay?.transform,[x+20,y+4,84,84]);skin(overlay,'gold');
       frame(ui.contentImage?.transform,[x+26,y+10,72,72]);
       tf(ui.headerText?.transform,[x+124,y+18,520,48],rects['sp.chestL'].fs);
@@ -1134,10 +1302,13 @@ function configure(ctx){
       // the item's background is the picture's frame, the title and the claim button sit at its right
       frame(ui.backgroundImage?.transform,[x+2,y+4,88,88]);skin(ui.backgroundImage);
       frame(ui.contentImage?.transform,[x+10,y+12,72,72]);
-      tf(ui.headerText?.transform,[x+106,y+8,w-140,28],rects['sp.chest'].fs);
+      tf(ui.headerText?.transform,[x+106,y+2,w-140,26],rects['sp.chest'].fs);
       tf(ui.rarityText?.transform,[x+106,y+8,w-140,28],15,4);
       frame(sticker,[x+106,y+8,w-140,28]);tf(ui.stickerText?.transform,[x+106,y+8,w-140,28],15,4);
-      frame(buy,[x+106,y+44,w-110,48]);skin(buy?.gameObject.GetComponent('Image'),'blue');tf(ui.purchaseText?.transform,[x+106,y+44,w-110,48],17,2);
+      // while the free chest waits, its "next free in" countdown goes on one line under the title (it overlapped it)
+      // (the "next free in:" label is a child of the timer text)
+      const cd=ui.cooldownText?.transform;tf(cd,[x+106,y+27,w-110,20],15,4);tf(cd?.Find('Next In Text'),[x+106,y+27,w-110,20],15);
+      frame(buy,[x+106,y+50,w-110,42]);skin(buy?.gameObject.GetComponent('Image'),'blue');tf(ui.purchaseText?.transform,[x+106,y+50,w-110,42],17,2);
       frame(root.transform.Find('GameNotification'),[x+w-26,y+10,22,22]);
       off(ctx,overlay);
     }
@@ -1148,6 +1319,37 @@ function configure(ctx){
     rel(reward.transform,[0,0,rects['sp.freeItem'].w,rects['sp.freeItem'].h],15);
     // the wide cells would stretch the reward pictures
     for(const img of reward.GetComponentsInChildren('Image',true))if(!img._ui2Skin)img.preserveAspect=true;
+    // A claimable reward: the gold frame of the Large chest's picture (the original's solid gold overlay, a dark value
+    // band across its bottom), its "!" a round badge inside the corner like the shop's other pings (a squashed pill on
+    // the frame's top edge).
+    const w=rects['sp.freeItem'].w,active=reward.transform.Find('Overlay_Active');
+    skin(active?.gameObject.GetComponent('Image'),'gold');
+    // a claimed reward's dark cover spans the whole cell, its value line too (kept to the sprite's aspect it left the
+    // value showing under the check)
+    const claimed=reward.transform.Find('Overlay_Claimed')?.gameObject.GetComponent('Image');
+    if(claimed)onFrame.push(()=>{claimed.preserveAspect=false;claimed.color=color('#05030c',.9);});
+    // (the value's text still showed through it: it goes with the claim)
+    const value=reward.transform.Find('Banner_Value');
+    if(claimed && value)ctx.onEveryFrame.push(()=>{const v=!claimed.gameObject.activeSelf;if(value.gameObject.activeSelf!==v)value.gameObject.SetActive(v);});
+    const ping=active?.Find('GameNotificationWithText');
+    rel(ping,[w-28,5,20,20]);rel(ping?.Find('Number (TMP)'),[0,0,20,20],15);
+  }
+  // The card won from the Free Rewards track shows like a bought daily deal (the card is framed below): the shop dark
+  // behind it, a Claim button under its count bar (UI_RVRewardTrackCardReveal waits for it; it waited for a tap).
+  for(const reveal of all('UI_RVRewardTrackCardReveal')){
+    // over the menu's bottom buttons, like the popups
+    modal(ctx,reveal.transform,'Card reveal');
+    const bg=reveal.transform.Find('Background')?.gameObject.GetComponent('Image');
+    if(bg)onFrame.push(()=>{bg.color=color('#05030c',.85);});
+    if(!reveal.claimButton){
+      const go=new GameObject('UI2 Claim',RectTransform);go.transform.SetParent(reveal.transform,false);
+      skin(go.AddComponent(Image),'green');reveal.claimButton=go.AddComponent(Button);
+      const label=new GameObject('Text (TMP)',RectTransform);label.transform.SetParent(go.transform,false);
+      const text=label.AddComponent(TextMeshProUGUI);text.color=color(tokens.text);text.raycastTarget=false;
+      text.horizontalAlignment=2;text.verticalAlignment=512;text.enableWordWrapping=false;reveal.claimLabel=text;
+      go.SetActive(false);awakeObject(go);ctx.gos.push(go,label);
+      frame(go.transform,[535,540,210,56]);frame(label.transform,[535,540,210,56],22);
+    }
   }
   for(const lx of all('UI_LootboxOpenAnimation')){
     // above the menu popups (a challenge overlay may open under a queued lootbox), below the tutorial "tap to open"
@@ -1159,33 +1361,100 @@ function configure(ctx){
     // The original fade dims the chest under the reward cards (bottom 69% of the screen). Framed into the overview box it
     // covered the cards, so it spans the screen again and draws under the grid: the chest dims, the cards stay lit.
     const fade=lx.transform.Find('LootboxCollectionOverview/CollectionOverviewContainer/GradientBottom');
-    if(fade){frame(fade,{x:0,y:0,w:1280,h:720,anchor:'canvas'});fade.SetAsFirstSibling();}
+    // (past the design canvas too: taller screens showed a lighter strip under it)
+    if(fade){frame(fade,{x:-320,y:-180,w:1920,h:1080,anchor:'canvas'});fade.SetAsFirstSibling();}
     const grid=lx.transform.Find('LootboxCollectionOverview/CollectionOverviewContainer/CollectionGrid');
+    // the grid places its cards: refitting them to their prefab spots (every frame while they animate) made them flash
+    // stacked in the first cell
+    const gridRec=ctx.records.get(grid);if(gridRec)gridRec.neutral=true;
     const gl=grid?.gameObject.GetComponent('CenteredGridLayoutGroup');
-    if(gl)onFrame.push(()=>{ctx.disabled.delete(gl);gl.enabled=true;gl.m_CellSize=[187,234];gl.m_Spacing=[10,10];gl.m_Constraint=1;gl.m_ConstraintCount=4;gl.m_ChildAlignment=0;});
-    // Owner's request: once the first card comes out, the chest slides up and left so the chest and the card stand side
-    // by side in the middle of the screen (the card at lx.card, the cards-left count and the ad buttons by the chest).
-    // The whole render texture moves, so the chest keeps its 1:1 mapping.
+    // The reward cards sit centred in the overview box: one row up to 5 cards, two rows above that (a box drops up to 9),
+    // shrunk so the "Upgraded!" label above each card and the count bar below it stay inside the box.
+    // Every card fits, so nothing scrolls or clips (the mask cut the badges and labels of the top row).
+    for(const c of [grid?.gameObject.GetComponent('ContentSizeFitter'),grid?.gameObject.GetComponent('Mask'),grid?.gameObject.GetComponent('Image'),grid?.parent?.gameObject.GetComponent('ScrollRect')])
+      if(c){ctx.disabled.set(c,c.enabled);c.enabled=false;}
+    // The grid is sized for the whole result (the overview's combined drops) before its first card shows, each card going
+    // straight to its final cell: sized by the cards shown so far, with every row centred, the cards shifted as each new
+    // one came in. The rows start at the left of the centred grid (an incomplete last row stays left aligned).
+    if(gl){
+      ctx.disabled.delete(gl);gl.enabled=true;
+      const layoutGrid=()=>{
+        const res=lx.results,ids=new Set([...(res?.resultRegular||[]),...(res?.resultAds||[])].map(d=>d.id));
+        const box=rects['lx.overview'],n=Math.max(1,ids.size,grid.children.filter(c=>c.gameObject.activeSelf).length);
+        const rows=n>5?2:1,cols=Math.ceil(n/rows),above=70,below=56,gx=40,gy=above+below+6;
+        const s=Math.min(1.1,(box.w-(cols-1)*gx)/(cols*187),box.h/(rows*234+(rows-1)*gy+above+below));
+        const cw=Math.round(187*s),ch=Math.round(234*s),sy=Math.round(gy*s);
+        const left=Math.round((box.w-cols*cw-(cols-1)*gx)/2),top=Math.round((box.h-rows*ch-(rows-1)*sy-(above+below)*s)/2+above*s);
+        if(gl.m_ConstraintCount===cols && gl.m_CellSize[0]===cw && gl.m_Padding?.m_Left===left && gl.m_Padding?.m_Top===top)return;
+        gl.enabled=true;gl.m_CellSize=[cw,ch];gl.m_Spacing=[gx,sy];gl.m_Constraint=1;gl.m_ConstraintCount=cols;gl.m_ChildAlignment=0;
+        gl.m_Padding={m_Left:left,m_Right:0,m_Top:top,m_Bottom:0};bumpLayout();
+      };
+      onFrame.push(layoutGrid);ctx.onEveryFrame.push(layoutGrid);
+    }
+    // Owner's mockup: once the first card comes out, one column in the middle of the screen: the card on top, its count
+    // bar under it, the chest at the bottom (the cards-left count at its corner, the ad buttons either side of it). The
+    // whole render texture moves, so the chest keeps its 1:1 mapping.
     const rt=lx.transform.Find('RenderTextureLootbox'),cards=lx.transform.Find('CardContainer');
     if(rt){
       const base=remember(rt).pos;let k=0,out=false;
+      // the chest fades out under the reward overview (it peeked out beside the centred cards)
+      const over=lx.collectionOverview?.gameObject,chest=rt.gameObject.GetComponent('RawImage')||rt.gameObject.GetComponent('Image');
+      const rtCam=rt.gameObject.GetComponent('RenderTextureCreator')?.camera;
+      // the ad card's Get it / Lose it buttons stand where the chest is (owner's markup): it fades out for them too
+      const rvButtons=lx.transform.Find('BottomButtons_LootboxRV')?.gameObject.GetComponent('CanvasGroup');
+      // owner's request: no yellow glow behind the chest and the ad buttons (the big one is the Get it button's highlight)
+      for(const n of ['UIParticle - Background','BottomButtons_LootboxRV/RVButton/UIParticle'])hide(lx.transform.Find(n));
       ctx.onEveryFrame.push(()=>{
+        const hide=over?.activeInHierarchy || (rvButtons?.gameObject.activeInHierarchy && rvButtons.alpha>.01);
+        if(chest && hide && chest.color.a>0)chest.color=chest.color.withAlpha(Math.max(0,chest.color.a-.08));
+        // once faded out the chest's camera stops rendering (the overview animates its cards on that frame time)
+        if(rtCam && chest?.color.a===0 && rtCam.enabled)rtCam.enabled=false;
         out||=!!cards?.children.some(c=>c.gameObject.activeSelf);
-        if(!out || k===1)return;
+        if(!out)return;
+        // set every frame: the screen's feedbacks move it back
         k=Math.min(1,k+(1-k)*.15+.002);
-        rt.anchoredPosition=new THREE.Vector2(base.x-230*k,base.y+80*k);
+        // The chest renders centred 21.8% of the screen height below the middle, 31% of it tall, whatever the aspect. It
+        // shrinks into the bottom box (lx.chest) by widening the camera's field of view (both figures scale by s), and the
+        // render texture moves it to the box's middle. The render texture itself is not scaled: that lost the chest on
+        // the owner's browser.
+        const box=rects['lx.chest'],H=rt.rect.height,s=1+(Math.min(1,box.h/(.31*H))-1)*k,cy=(.5+.218*s)*H-(H-720)/2;
+        if(rtCam){rtCam._ui2Fov??=rtCam.fov;rtCam.fov=2*THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(rtCam._ui2Fov)/2)/s));}
+        rt.anchoredPosition=new THREE.Vector2(base.x,base.y-(box.y+box.h/2-cy)*k);
       });
     }
   }
   for(const card of all('UI_CardBase')){
-    if(card.transform.parent?.name==='CollectionGrid')onFrame.push(()=>fitChildren(card.transform,187,234,new Map(),ctx));
-    else if(card.GetComponentInParent('UI_LootboxOpenAnimation')){
-      map(card.transform,'lx.card');
-      // the "Quality Increased / rarity" banner of an upgraded card: a band just above the card (it sat above the screen)
-      const c=rects['lx.card'],banner=card.transform.Find('Upgrade Banner');
-      frame(banner,[c.x-20,c.y-104,c.w+40,54]);
-      frame(banner?.Find('Quality (TMP)'),[c.x-20,c.y-102,c.w+40,20],15);frame(banner?.Find('Rarity (TMP)'),[c.x-20,c.y-82,c.w+40,30],22);
-      const texts=banner?.gameObject.GetComponentsInChildren('TextMeshProUGUI',true)||[];
+    if(card.transform.parent?.name==='CollectionGrid'){
+      // the cell size follows the card count (lootbox overview above): the cards already shown refit when a later card
+      // shrinks the cells
+      let last='';
+      const fit=force=>{const r=card.transform.rect,k=r.width+'x'+r.height;if(r.width<=2 || (!force && k===last))return;last=k;fitChildren(card.transform,r.width,r.height,new Map(),ctx);};
+      onFrame.push(()=>fit(true));ctx.onEveryFrame.push(()=>fit(false));
+      // The reveal pops each card in from 1.5x with flashes and sparks: in the grid the popped card covered its
+      // neighbours (and was remembered at that size). The cards keep their size and only fade in; no particles.
+      const face=card.transform.Find('Card');
+      for(const n of ['UIParticle','UIParticle - Reveal'])hide(card.transform.Find(n));
+      ctx.onEveryFrame.push(()=>{if(face && face.localScale.x!==1)face.localScale=new THREE.Vector3(1,1,1);});
+    }
+    // a bought daily deal's card and a card won from the Free Rewards track reveal like a lootbox card (left screen
+    // sized, the card and its flash filled the screen)
+    else if(card.GetComponentInParent('UI_LootboxOpenAnimation') || card.GetComponentInParent('DailyDealShopItemConfirmation') || card.GetComponentInParent('UI_RVRewardTrackCardReveal')){
+      // (a deal has no chest under it: banner, card and count bar centred on the screen)
+      const deal=!card.GetComponentInParent('UI_LootboxOpenAnimation'),c=deal?{...rects['lx.card'],y:227}:rects['lx.card'];
+      if(deal)frame(card.transform,[c.x,c.y,c.w,c.h]);else map(card.transform,'lx.card');
+      // owner's request: a deal's or reward's card comes out plain (no flashes, sparks or level-up bursts)
+      if(deal)for(const n of ['UIParticle','UIParticle - Reveal','UIParticle - Upgraded','Rarity Particle Effects'])hide(card.transform.Find(n));
+      // the "Quality Increased / rarity" banner of an upgraded card: a band above the card, clear of the count badge on its
+      // corner (it sat above the screen),
+      // the count bar wider than the card just under it (owner's mockup)
+      const banner=card.transform.Find('Upgrade Banner');
+      frame(banner,[c.x-30,c.y-84,c.w+60,46]);
+      frame(banner?.Find('Quality (TMP)'),[c.x-30,c.y-82,c.w+60,18],15);frame(banner?.Find('Rarity (TMP)'),[c.x-30,c.y-64,c.w+60,24],20);
+      frame(card.transform.Find('FillbarBackground'),[c.x-20,c.y+c.h+6,c.w+40,32]);
+      // the ad card's "Bonus Reward" (above the screen) tops the column
+      const bonus=card.transform.Find('BonusReward (TMP)');
+      frame(bonus,[c.x-80,c.y-122,c.w+160,34],24);
+      const texts=[...(banner?.gameObject.GetComponentsInChildren('TextMeshProUGUI',true)||[]),bonus?.gameObject.GetComponent('TextMeshProUGUI')].filter(Boolean);
       onFrame.push(()=>{for(const t of texts){t.enableWordWrapping=false;t.horizontalAlignment=2;t.verticalAlignment=512;t.m_margin=[0,0,0,0];}});
     }
   }
@@ -1195,6 +1464,93 @@ function configure(ctx){
     const e=ctx.records.get(tap);
     if(e){const id=text?.text===Meta.data.loc['UI/Shop/Lootbox/TapToOpen']?'lx.tap':'tu.tap';e.id=id;e.r=rects[id];place(tap,e.r);textStyle(text,id==='lx.tap'?22:15,id==='lx.tap');}
   });
+  // The focus darkening fills its screen rect, TutorialFocus, which landscape holds to the 1280 x 720 design canvas:
+  // a wider window showed the game unlit at both sides (owner's capture, 2026-10-30). It fills the root canvas instead.
+  if(root.name==='TutorialUtility'){
+    const canvas=find('TutorialCanvas');
+    for(const f of all('ScreenFill')){let sr=f.screenRect;Object.defineProperty(f,'screenRect',{configurable:true,get:()=>UI2.landscape && canvas?canvas:sr,set:v=>{sr=v;}});}
+    // A focus on a UI target takes the target's own size plus a margin: the steps give portrait sizes, which framed
+    // a challenge row in a band wider than the Challenges panel (owner's capture, 2026-10-30). A circle stays round.
+    // the pointing hand was 175 px, as big as a bottom button, and ran off the screen under one (owner: "too big");
+    // its tip stays on the target
+    for(const hb of [...all('TutorialHandPress'),...all('TutorialHandMoving')]){
+      const hand=hb.hand;if(!hand?.isRectTransform)continue;
+      remember(hand);ctx.disable(hand);onFrame.push(()=>{hand.sizeDelta=new THREE.Vector2(72,72);});
+      // Owner's request: the hand presses once a second. Its animator clips do not play here, so from the moment it
+      // shows it dips towards its fingertip for 0.35 s at the start of every second.
+      if(hb.constructor.typeName!=='TutorialHandPress')continue;
+      let t0=-1;
+      ctx.onEveryFrame.push(()=>{
+        if(!hb.gameObject.activeInHierarchy){t0=-1;return;}
+        const now=performance.now();if(t0<0)t0=now;
+        const k=Math.min(1,((now-t0)%1000)/350),s=1-.18*Math.sin(Math.PI*k);
+        if(hand.localScale.x!==s)hand.localScale=new THREE.Vector3(s,s,1);
+      });
+    }
+    const focus=all('TutorialFocusStencil');
+    // A target may name the rect its focus frames (`_ui2Focus`, a transform or a function returning one): the Large
+    // chest is framed with its gold Chests plate, whose CHESTS label the item's own rect left out (owner's capture).
+    const geoOf=tg=>{const g=typeof tg._ui2Focus==='function'?tg._ui2Focus():tg._ui2Focus;return g?.isRectTransform && g.gameObject.activeInHierarchy?g:tg;};
+    ctx.onEveryFrame.push(()=>{
+      for(const f of focus){
+        const tg=f.target;if(!f.gameObject.activeInHierarchy || !tg?.isRectTransform || tg.gameObject._destroyed)continue;
+        const geo=geoOf(tg),c=geo.GetWorldCorners(),s=f.transform.parent.lossyScale,pad=12*(rootCanvas(f.transform)?.scaleFactor||1);
+        let w=(Math.abs(c[2].x-c[0].x)+2*pad)/Math.abs(s.x),h=(Math.abs(c[2].y-c[0].y)+2*pad)/Math.abs(s.y);
+        if(/Circle/.test(f.name))w=h=Math.max(w,h);
+        const sd=f.transform.sizeDelta;if(Math.abs(sd.x-w)>.5 || Math.abs(sd.y-h)>.5){f.size2D=[w,h];f.applySize();}
+        // moved after the darkening (ScreenFill) was fitted to the screen in LateUpdate: it is refitted, or it left the
+        // right edge unlit by the distance moved (owner's capture)
+        if(geo!==tg){
+          const p=f.transform.position;f.transform.position=new THREE.Vector3((c[0].x+c[2].x)/2,(c[0].y+c[2].y)/2,p.z);
+          for(const sf of f.gameObject.GetComponentsInChildren('ScreenFill',true))sf.LateUpdate();
+        }
+      }
+    });
+    // The instruction is one line (it wrapped to two over the buttons). On the menu it sits between the popup panels
+    // (they end at y 482) and the bottom buttons; in a run it keeps its place at the bottom.
+    const text=find('TutorialCanvas/UI Container/TutorialText/Text/Content'),tap=find('TutorialCanvas/UI Container/TutorialText/TapToContinue');
+    onFrame.push(()=>{const tx=text?.gameObject.GetComponent('TextMeshProUGUI');if(tx){tx.enableWordWrapping=false;tx.m_enableAutoSizing=1;tx.m_fontSizeMax=rects['tu.text'].fs;tx.m_fontSizeMin=20;}});
+    // A message of two lines on the menu ("You collected a lot of Gems!\n\nUse your Gems in the Shop") has its blank
+    // line dropped (it ran down over the buttons and the focus). Pointing at a bottom button it stands just above that
+    // button, centred on it (owner's markup); otherwise above the middle of the screen, its last line at y 450.
+    const tx=text?.gameObject.GetComponent('TextMeshProUGUI');
+    const focusAt=()=>{
+      for(const f of focus){
+        const tg=f.target;if(!f.gameObject.activeInHierarchy || !tg?.isRectTransform || tg.gameObject._destroyed)continue;
+        const c=geoOf(tg).GetWorldCorners(),u=rootCanvas(tg)?.scaleFactor||1,W=UISystem.width/u,H=UISystem.height/u;
+        const oy=(H-720)/2,top=H-Math.max(c[0].y,c[2].y)/u-oy,bottom=H-Math.min(c[0].y,c[2].y)/u-oy;
+        return {x:(c[0].x+c[2].x)/2/u-(W-1280)/2,y:(top+bottom)/2,top,bottom};
+      }
+      return null;
+    };
+    ctx.onEveryFrame.push(()=>{
+      const menu=!!SceneHost.menuRoot;
+      if(tx && /\n\s*\n/.test(tx.text))tx.text=tx.text.replace(/\n\s*\n/g,'\n');
+      const lines=menu && tx && tx.text.includes('\n'),at=menu?focusAt():null,low=lines && at && at.y>500;
+      if(tx){
+        const v=lines?1024:512;if(tx.verticalAlignment!==v)tx.verticalAlignment=v;if(lines && tx.horizontalAlignment!==2)tx.horizontalAlignment=2;
+        // (a little smaller than the one-line instructions, owner's request)
+        const fs=lines?24:rects['tu.text'].fs;if(tx.m_fontSizeMax!==fs){tx.m_fontSizeMax=fs;tx.SetAllDirty?.();}
+      }
+      let tr=lines?(low?{x:Math.round(Math.min(1260-460,Math.max(20,at.x-230))),y:Math.round(at.y-160),w:460,h:84}:{y:330,h:120}):{y:menu?486:rects['tu.text'].y};
+      // A one-line message over its own focus ("You can afford the Large Chest!" on the chest row, "Buy the Large Chest"
+      // on the popup's price) goes to the nearer side of it: above, or below past the hand pressing it (72 px).
+      if(!lines && at){
+        const h=rects['tu.text'].h,up=at.top-20-h,down=at.bottom+56;
+        if(tr.y<at.bottom+12 && tr.y+h>at.top-12)tr={y:Math.round(up>=60 && (tr.y-up<=down-tr.y || down+h>700)?up:down)};
+      }
+      // Over the Rank Up popup ("Collect Stars to earn new Cosmetics!") it takes the place under the cards, or under the
+      // x2 offer, and the popup's "Click to continue" moves to the bottom (owner's markup, 2026-10-30): it covered it.
+      const ru=rankUpShown();
+      if(!lines && ru)tr={y:ru.GetComponent('PlayerRankUpPopupUI')?.spawnedFeedbacks?566:500};
+      for(const [t,id,r] of [[text,'tu.text',tr],[tap,'tu.tap',{y:menu?528:rects['tu.tap'].y}]]){
+        const e=t && ctx.records.get(t);if(!e || e.id!==id)continue;
+        const next=asRect({...rects[id],...r});
+        if(e.r.x===next.x && e.r.y===next.y && e.r.w===next.w && e.r.h===next.h)continue;
+        e.r=next;place(t,e.r);
+      }
+    });
+  }
   for(const rv of all('UI_Revive')){
     modal(ctx,rv.transform,'Revive');
     frame(rv.transform.Find('Popup'),[490,130,300,330]);
@@ -1217,6 +1573,8 @@ function configure(ctx){
       const row=c.Find('ChallengeSlotReadOnlyUI');if(row)readonlyRow(ctx,row,[r.x,r.y+14,r.w,56]);
       onFrame.push(()=>{const t=c.Find('Text (TMP)')?.gameObject.GetComponent('TextMeshProUGUI');if(t){t.horizontalAlignment=2;t.verticalAlignment=512;t.enableWordWrapping=false;}});
     }
+    // the revive reason under the panel is not shown in landscape (owner's request, 2026-10-30)
+    for(const t of named('TriggerBox')){const go=t.gameObject;hide(t);ctx.onEveryFrame.push(()=>{if(go.activeSelf)go.SetActive(false);});}
   }
   // The crown is instantiated by Portal after the menu scene is ready. It shows the bar-chart glyph, and the Levels
   // button the crown (owner's request).
@@ -1236,7 +1594,23 @@ function configure(ctx){
     frame(icon,{x:r.x+r.w/2-22,y:r.y+r.h/2-21,w:44,h:42,anchor:r.anchor});
     homeGlyph(icon?.gameObject.GetComponent('Image'),'levels');
   }
-  for(const t of named('Tooltip Popup'))map(t,'h.tooltip');
+  // A shop card (daily deal, its popup) hides its name (the deal shows it beside the picture): the name's black plate
+  // stayed, a dark band over the count bar.
+  for(const t of named('NameObject'))if(t.parent?.parent?.name==='UI_MetaCard - Shop')off(ctx,t.gameObject.GetComponent('Image'));
+  for(const t of named('Tooltip Popup')){
+    map(t,'h.tooltip');
+    // "Not enough rubies", "Come back tomorrow": a pill with its text, over the popups that raise it (it showed under the
+    // refresh popup's shade, its text tiny beside a squashed black blob: the content-sized plate and text were scaled
+    // into the rect)
+    const cv=t.gameObject.GetComponent('Canvas')||t.gameObject.AddComponent(Canvas);cv.overrideSorting=true;cv.sortingOrder=109;
+    const plate=t.Find('Container'),text=plate?.Find('Text (TMP)');
+    for(const c of [plate?.gameObject.GetComponent('HorizontalLayoutGroup'),plate?.gameObject.GetComponent('ContentSizeFitter'),text?.gameObject.GetComponent('ContentSizeFitter')])
+      if(c){ctx.disabled.set(c,c.enabled);c.enabled=false;}
+    const r=rects['h.tooltip'];
+    frame(plate,r);skin(plate?.gameObject.GetComponent('Image'),'panel','pill');frame(text,r,18);
+    const tmp=text?.gameObject.GetComponent('TextMeshProUGUI');
+    if(tmp)onFrame.push(()=>{tmp.enableWordWrapping=false;tmp.horizontalAlignment=2;tmp.verticalAlignment=512;tmp.m_margin=[0,0,0,0];});
+  }
 }
 
 InstantiateHooks.push((gos,ref)=>{

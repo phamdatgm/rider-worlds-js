@@ -309,7 +309,9 @@ export class MenuButtonState extends MonoBehaviour {
   }
 
   get TutorialCenterSocket() {
-    return this.activeState.transform;
+    // the landscape layout centres the tutorial's focus on the whole tab (src/ui2/home.js)
+    const c = this._ui2TutorialCenter;
+    return c && c.gameObject.activeInHierarchy ? c : this.activeState.transform;
   }
 
   get TutorialPressSocket() {
@@ -342,6 +344,7 @@ export class MenuButtonState extends MonoBehaviour {
 
   SetLocked(rank) {
     this.IsLocked = true;
+    this.lockedRank = rank;
     if (rank >= 0) {
       this.starIndicator.Initialize(rank);
       this.starIndicator.gameObject.SetActive(true);
@@ -372,6 +375,8 @@ export class MenuButtonState extends MonoBehaviour {
     if (this.IsLocked) {
       AudioSampleID.UI_ButtonLocked.Play();
       this.lockedFeedback?.PlayFeedbacks();
+      // owner's request: the tab shows a padlock (src/ui2/home.js), so a tap tells the rank it needs
+      if (this.lockedRank >= 0) MainMenuManager.PushTooltip({ mTerm: 'UI/Unlock/FeatureUnlock' }, String(this.lockedRank));
     } else AudioSampleID.UI_ButtonClick_Generic.Play();
   }
 }
@@ -405,7 +410,9 @@ export class HomeScreenManager extends MainMenuPage {
     this.playButton.onClick.AddListener(() => this.OnPlay());
     this._mainMenuManager = this.GetComponentInParent('MainMenuManager');
     const cd = this.challengeDisplay;
-    if (cd && (PlayerRankManager.Instance.ShouldAutoOpenChallengePopUp || (!cd.IsOpen && ChallengeManager.Instance.GetActiveClaimableChallenges() >= 1))) cd.TryOpen?.(true);
+    // Opens by itself only with a challenge to claim (its burst, then the rank-up): the early ranks' auto-open showed
+    // it on the first returns home with nothing to do (owner's request, 2026-10-30: "confusing").
+    if (cd && !cd.IsOpen && ChallengeManager.Instance.GetActiveClaimableChallenges() >= 1) cd.TryOpen?.(true);
   }
 
   OnStartGameMode(mode) {
@@ -1125,7 +1132,9 @@ export class MainMenuRankUpPopupOpener extends MonoBehaviour {
 
   get blocked() {
     const home = MainMenuManager.Instance?.HomeScreenManager;
-    return UIStatics.TutorialActive() || !!home?.challengeDisplay?.IsAutoClaiming || !!home?.timedLevelsDisplay?.IsBusy || !!MainMenuManager.Instance?.RewardHandler?.AreAnyParticleInstancesActive;
+    // The claim burst, then the popup (owner's request, 2026-10-30): it no longer waits for the reward stars to fly to
+    // the rank bar (they land under the popup), only for the challenge claim itself.
+    return UIStatics.TutorialActive() || !!home?.challengeDisplay?.IsAutoClaiming || !!home?.timedLevelsDisplay?.IsBusy;
   }
 
   Open(newRank) {
@@ -1138,7 +1147,6 @@ export class MainMenuRankUpPopupOpener extends MonoBehaviour {
     const self = this;
     this.StartCoroutine((function* () {
       yield new WaitForSeconds(self.showDelay);
-      while (MainMenuManager.Instance?.RewardHandler?.AreAnyParticleInstancesActive) yield null;
       if (UIStatics.TutorialActive()) {
         // nothing is open while the tutorial runs (the C# kept IsOpenOrActive, locking the pages under the tutorial)
         st.IsOpenOrActive = false;
@@ -1173,8 +1181,11 @@ export class MainMenuRankUpPopupOpener extends MonoBehaviour {
       this.Close();
       this.Open(m.LastPresentedRank() + 1);
     } else {
-      this.openRewardTrack?.OpenTrack?.();
+      // not after the first rank-up, rank 1 to 2: the track has nothing to show yet (owner's request, 2026-10-30)
+      if (m.CurrentRank > 2) this.openRewardTrack?.OpenTrack?.();
       this.Close();
+      // the Challenges popup the claim opened goes with the last rank-up (owner's request, 2026-10-30)
+      MainMenuManager.Instance?.HomeScreenManager?.challengeDisplay?.TryClose?.();
     }
   }
 }

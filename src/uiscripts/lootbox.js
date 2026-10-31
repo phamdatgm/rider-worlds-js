@@ -13,6 +13,7 @@ import { ClaimSelection, LootboxService } from '../meta/lootbox.js';
 import { CardService, CardType } from '../meta/cards.js';
 import { bumpLayout } from '../ugui/rect.js';
 import { Color } from '../ugui/graphic.js';
+import { UISystem } from '../ugui/canvas.js';
 import { UISprites } from '../ugui/sprites.js';
 import { GridLayoutGroup } from '../ugui/layout.js';
 import { localize, ev } from './common.js';
@@ -245,6 +246,9 @@ export class UI_LootboxOpenAnimation extends MonoBehaviour {
     if (!this.clicked) {
       tutorialUtility()?.OverrideTapToContinueText(this.tapToContinueText?.mTerm ?? 'UI/Shop/Lootbox/TapToOpen');
       tutorialUtility()?.ShowTapToContinue(false, true);
+      // owner's request: the hand points at the middle of the chest (it renders centred 71.8 % down the screen); the
+      // screen button stays the one thing to tap
+      tutorialUtility()?.PressOn(new THREE.Vector3(UISystem.width / 2, UISystem.height * (1 - 0.718), 0), this.backgroundBtn.gameObject);
     }
     yield new WaitUntil(() => this.clicked);
     this.clicked = false;

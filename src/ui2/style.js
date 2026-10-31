@@ -1,5 +1,7 @@
 // UI2 look: neon chrome from the UI2 atlas page (tools/ui2-art.mjs), TMP styling and button colours.
-import { Color, UIMesh } from '../ugui/graphic.js';
+import { Color, UIMesh, Image } from '../ugui/graphic.js';
+import { UISystem } from '../ugui/canvas.js';
+import { TMP_Text } from '../ugui/tmp.js';
 import { UISprites } from '../ugui/sprites.js';
 import { Assets } from '../engine/assets.js';
 
@@ -122,6 +124,35 @@ function chrome(img){
   for(let a=0;a<3;a++)for(let b=0;b<3;b++)if(vx[a+1]>vx[a] && vy[b+1]>vy[b])m.addQuad(vx[a],vy[b],vx[a+1],vy[b+1],c,ux[a],uy[b],ux[a+1],uy[b+1]);
   img._ui2Tex=s.texture;img._chromeKey=ck;img._chrome=m;return m;
 }
+// Owner's request: every gem and ruby glows like the Home top bar's. Their Images draw the bloomed UI2 icon (128 px,
+// the 76 px glyph in the middle) with the glyph where the flat icon was and the bloom past its rect, so no rect changes.
+// Icons set later (reward cells, prices) are caught by the sprite setter. Portrait keeps the flat icon.
+const GLOW_ICONS={S_Icon_SoftCurrency:'cur_gem',S_Icon_HardCurrency:'cur_ruby'};
+function glowCalls(){
+  const img=this,r=img.rectTransform.rect,s=UISprites.get('Sprite/UI2/'+img._ui2Glow);
+  if(!s || UISystem.width<UISystem.height)return [{mesh:img.getMesh(),texture:img.mainTexture}];
+  const ck=[r.x,r.y,r.width,r.height,img._ui2Glow,img.color.a].join('|');
+  if(img._glowKey!==ck){
+    const h=Math.min(r.width,r.height)*128/76/2,cx=r.x+r.width/2,cy=r.y+r.height/2,o=s.outerUV,m=new UIMesh();
+    m.addQuad(cx-h,cy-h,cx+h,cy+h,new Color(1,1,1,img.color.a),o[0],o[1],o[2],o[3]);
+    img._glowKey=ck;img._glowMesh=m;
+  }
+  return [{mesh:img._glowMesh,texture:s.texture}];
+}
+export function glowIcon(img){
+  const key=GLOW_ICONS[img._sprite?.name];
+  if(key && !img._ui2Skin){img._ui2Glow=key;img.getDrawCalls=glowCalls;}
+  else if(img._ui2Glow){img._ui2Glow=null;img.getDrawCalls=undefined;}
+}
+// the gems and rubies of prices and amounts (`<sprite name="SoftCurrency">`) too
+const GLOW_TEXT_SPRITES={SoftCurrency:'cur_gem',HardCurrency:'cur_ruby'};
+TMP_Text.spriteOverride=(name)=>{
+  const s=GLOW_TEXT_SPRITES[name] && UISystem.width>=UISystem.height && UISprites.get('Sprite/UI2/'+GLOW_TEXT_SPRITES[name]);
+  return s?{texture:s.texture,uv:s.outerUV,scale:128/76}:null;
+};
+const spriteProp=Object.getOwnPropertyDescriptor(Image.prototype,'sprite');
+Object.defineProperty(Image.prototype,'sprite',{configurable:true,get:spriteProp.get,set(s){spriteProp.set.call(this,s);glowIcon(this);}});
+
 export function styleObject(go) {
   if(styled.has(go))return;
   styled.add(go);
@@ -137,6 +168,7 @@ export function styleObject(go) {
       if(c.color.a>.01 && /S_NavigationBar|S_Button_Main|S_Container_Base|S_Container_Solid/.test(n) && !c._ui2Skin)skin(c,'panel',/Button_Main/.test(n)?'hex':'panel');
       if(/S_Icon_SoftCurrency/.test(n))c.color=color(tokens.gem);
       if(/S_Icon_HardCurrency/.test(n))c.color=color(tokens.ruby);
+      glowIcon(c);
       // Rank stars use the silver-violet UI2 star of the Home reference; small stars take the world's accent (pink on
       // World 1, gold on World 2), recoloured by setTheme.
       if(/S_Icon_StarRank/.test(n)){themeSprite(c,'star_rank');c.preserveAspect=true;c.color=Color.white;}

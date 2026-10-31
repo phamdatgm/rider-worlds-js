@@ -11,7 +11,7 @@ import { Currencies } from '../meta/currency.js';
 import { CardService, CardType } from '../meta/cards.js';
 import { PlayerRank } from '../meta/rank.js';
 import { UISystem } from '../ugui/canvas.js';
-import { InputUIBlocker } from '../ugui/events.js';
+import { InputUIBlocker, EventSystem } from '../ugui/events.js';
 import { Color } from '../ugui/graphic.js';
 import { localize, UI_OverlayBase, playFeedbacksAtOnce } from './common.js';
 import { PlayerRankManager, SettingsContainer, UnlockTypeEnum, AudioSampleID } from './services.js';
@@ -143,29 +143,34 @@ export class PlayerRankUpPopupUI extends MonoBehaviour {
     c.UpdateRewardAmount(target);
   }
 
+  // A short sequence (owner's request, 2026-10-30: "simpler and faster"): the popup lands open with the new rank and
+  // the star's poof (the end feedback), each reward pops in with its skip feedbacks (no card flip, no 3 s build-up),
+  // then the offer or "Click to continue" at once. The original ran some 8 s for two rewards.
   *RankUpTextCoroutine(currentRank) {
-    const newRankUI = currentRank + 1;
-    this.rankNumberText?.SetText(currentRank);
+    this.rankNumberText?.SetText(currentRank + 1);
     yield null;
-    this.openMMFeedbacks?.PlayFeedbacks();
-    while (this.openMMFeedbacks?.IsPlaying) yield null;
-    this.rankUpFeedback.PlayFeedbacks();
-    const reg = this.rankUpFeedback.Regular;
-    while (reg && !reg.InScriptDrivenPause && reg.IsPlaying) yield null;
-    this.rankNumberText?.SetText(newRankUI);
-    reg?.ResumeFeedbacks();
+    playFeedbacksAtOnce(this.openMMFeedbacks);
+    this.rankUpFeedback.Skip?.PlayFeedbacks();
     this.canSkipRankUpAnimation = true;
-    while (this.rankUpFeedback.IsPlaying) yield null;
     yield* this.SpawnRewards(currentRank);
     let rv = false;
     for (const r of rankRewards(currentRank)) {
       if (r.rewardID === CurrencyHelper.GetRewardID(1)) {
-        this.rvFeedback?.PlayFeedbacks();
+        playFeedbacksAtOnce(this.rvFeedback);
         if (!rv) Analytics.adOffer('rank_up_bonus');
         rv = true;
       }
     }
-    if (!rv) this.claimButtonFeedback?.PlayFeedbacks();
+    if (!rv) playFeedbacksAtOnce(this.claimButtonFeedback);
+  }
+
+  /** the skip variant of a SkippableMMFeedback in place of the regular one, waited for */
+  *PlayQuick(fb) {
+    fb.Regular?.StopFeedbacks();
+    const skip = fb.Skip;
+    if (!skip) return;
+    skip.PlayFeedbacks();
+    while (skip.IsPlaying) yield null;
   }
 
   *SpawnRewards(currentRank) {
@@ -187,6 +192,8 @@ export class PlayerRankUpPopupUI extends MonoBehaviour {
         return;
       }
       const inst = Instantiate(prefab, this.rewardContainer);
+      // the regular appear (card flip, 3 s build-up) starts itself on Start: off, PlayQuick plays its skip instead
+      if (inst.appearFeedbacks?.Regular) inst.appearFeedbacks.Regular.AutoPlayOnStart = 0;
       inst.rankUpRewardComponent.SetRankIndex(currentRank);
       inst.rankUpRewardComponent.SetRewardUI(reward, asset);
       if (reward.rewardID === CurrencyHelper.GetRewardID(1)) {
@@ -199,9 +206,8 @@ export class PlayerRankUpPopupUI extends MonoBehaviour {
         if (idx >= this.targetPositions.length) idx = 0;
       }
       yield null;
-      yield* inst.appearFeedbacks.WaitForDonePlayingOrSkip();
-      inst.appear2Feedbacks.PlayFeedbacks();
-      yield* inst.appear2Feedbacks.WaitForDonePlayingOrSkip();
+      yield* this.PlayQuick(inst.appearFeedbacks);
+      yield* this.PlayQuick(inst.appear2Feedbacks);
       this.ShownRewards++;
     }
   }
@@ -464,14 +470,19 @@ export class UI_RewardTrack extends MonoBehaviour {
     return AnimationCurve.from(this.animateToSectionCurve);
   }
 
+  // Owner's request: the close button shows with the track and closes it while the preview / rank-up scroll plays
+  // (it was hidden until they ended); the rest of the input stays blocked. A rank-up cut short plays its remaining
+  // ranks on the next open (LastPresentedRankInRewardTrack follows each one).
   OnStartAnimation() {
-    this.closeButton?.gameObject.SetActive(false);
+    this.closeButton?.gameObject.SetActive(true);
     InputUIBlocker.DisableInput();
+    EventSystem.blockedExcept = this.closeButton?.gameObject || null;
   }
 
   OnEndAnimation() {
     this.closeButton?.gameObject.SetActive(true);
     InputUIBlocker.EnableInput();
+    EventSystem.blockedExcept = null;
   }
 
   Initialize() {
@@ -530,6 +541,11 @@ export class UI_RewardTrack extends MonoBehaviour {
     UIStatics.RewardTrackOpen = false;
     playFeedbacksAtOnce(this.onClose);
     this.OnEndAnimation();
+    // a scroll cut short by the close leaves the list scrollable
+    if (this.scrollingCo) {
+      this.scrollRect.enabled = true;
+      this.scrollingCo = null;
+    }
     this.gameObject.SetActive(false);
   }
 

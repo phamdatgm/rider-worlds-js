@@ -52,7 +52,16 @@ const OWNER_TEXT = { test: (s) => /(azgames\.io|1games\.io|gamesforfree\.io|ofre
 // it can read `© ${a} ${b}` (Vite keeps COPYRIGHT_YEAR / the owner as variables) or `\xA9 2026 ${o}` (esbuild):
 // © (or its escape), then the year or one ${…}, then nothing, Azgames.io or one ${…}.
 const KIT_COPYRIGHT = /^(["'`])(?:(?:©|\\xa9|\\u00a9) (?:\d{4}|\$\{[^`{}]*\})(?: (?:Azgames\.io|\$\{[^`]*\}))? ?|Azgames\.io)\1$/i;
-const ownerInStrings = (text) => (text.match(/(["'`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []).find((lit) => OWNER_TEXT.test(lit) && !KIT_COPYRIGHT.test(lit));
+// sdk/gmsdkjs-shim.js DEV_MORE_GAMES: the More Games link of the dev page only, not a copyright line.
+const KIT_DEV_LINK = /^(["'`])https:\/\/azgames\.io\/?\1$/i;
+// The kit's own owner texts (copyright.js: `© ${year} ${owner}`, the default "Azgames.io"; the shim's dev link) are
+// removed from the whole code first, quotes kept: the literal scan pairs quotes naively, and in minified code a span
+// it cuts can hold one of them.
+const KIT_OWNER_BITS = /(?<=["'`])(?:©|\\xa9|\\u00a9) (?:\d{4}|\$\{[^`{}]*\}) (?:Azgames\.io|\$\{[^`]*?\})(?=["'`])|(?<=["'`])https:\/\/azgames\.io\/?(?=["'`])|(?<=["'`])Azgames\.io(?=["'`])/gi;
+const ownerInStrings = (text) =>
+  (text.replace(KIT_OWNER_BITS, '').match(/(["'`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []).find(
+    (lit) => OWNER_TEXT.test(lit) && !KIT_COPYRIGHT.test(lit) && !KIT_DEV_LINK.test(lit),
+  );
 const OWNER_HINT = 'the copyright line must come from copyrightText(sdk) of sdk/copyright.js (default "© 2026 Azgames.io", the server can change or hide it; docs/INTEGRATION.md §9)';
 
 function walk(d) {
@@ -79,6 +88,35 @@ function existsExact(root, rel) {
     d = join(d, part);
   }
   return true;
+}
+
+/** The file is there with upper / lower case ignored (the same on Windows and on Linux, where the build server runs). */
+function existsLoose(root, rel) {
+  let d = root;
+  for (const part of rel.split('/').filter(Boolean)) {
+    let names;
+    try {
+      names = readdirSync(d);
+    } catch {
+      return false;
+    }
+    const hit = names.find((n) => n.toLowerCase() === part.toLowerCase());
+    if (!hit) return false;
+    d = join(d, hit);
+  }
+  return true;
+}
+
+/**
+ * A literal asset path of game.js against the package. Only a path that exists in other letters is sure to break on
+ * the CDN ('case'); one not there at all may be no file (an atlas key, a name the game maps) ('missing'). A path
+ * built at run time (`assets/images/${p}.png`) is no file name: only its folder before ${…} is checked.
+ */
+function assetPathProblem(dir, p) {
+  const at = p.indexOf('${');
+  const rel = at < 0 ? p : p.slice(0, p.lastIndexOf('/', at) + 1);
+  if (!rel || existsExact(dir, rel)) return null;
+  return existsLoose(dir, rel) ? 'case' : 'missing';
 }
 
 function readJson(path, label) {
@@ -126,8 +164,9 @@ const HTTPS_IMAGE = /\.(?:png|jpe?g|webp|gif|avif|svg|ktx2|basis)$/i;
 function checkEmbed(js, entry) {
   const list = (re) => [...new Set([...js.matchAll(re)].map((m) => m[1]))];
   const plain = list(HTTP_FILE);
-  // http:// inside an https page is blocked outright (mixed content): the one thing with no way around.
-  if (plain.length) err(`${entry} loads files over http:// (blocked on https pages): use https: ${plain.slice(0, 4).join(', ')} (docs/EMBED.md)`);
+  // http:// inside an https page is blocked outright (mixed content), when it is loaded: a warning, since a library
+  // may carry such a URL the game never loads.
+  if (plain.length) warn(`${entry} loads files over http:// (blocked on https pages): use https: ${plain.slice(0, 4).join(', ')} (docs/EMBED.md)`);
   const outside = list(HTTPS_FILE);
   if (outside.length) {
     warn(`${entry} loads files from other domains: that server must send CORS (Access-Control-Allow-Origin) and the game must load them in CORS mode, or copy them into the package: ${outside.slice(0, 4).join(', ')} (docs/EMBED.md §1)`);
@@ -354,6 +393,11 @@ const FORBIDDEN_LICENSES = [
 const KNOWN_LICENSES = /^(CC0-1\.0|CC-BY-(3\.0|4\.0)|CC-BY-SA-(3\.0|4\.0)|OFL-1\.1|MIT|Apache-2\.0|BSD-[23]-Clause|Unlicense|Pixabay|commercial|in-house)$/;
 /** Files under a root that are the records, not assets. */
 const RECORD_FILE = /(^|\/)(CREDITS|LICEN[CS]E|README)[^/]*$|\.(md|txt)$/i;
+/**
+ * Files the kit hands out (loader, publisher logo, loading look, leaderboard flags): the kit answers for them, so
+ * licenses.json needs no entry and an "unknown" one is not reported. A path, or a glob of licenses.json.
+ */
+const KIT_FILE = /(^|\/)public\/(loader\.js|icons\/(logo\.webp|loader\.css)|assets\/leaderboard\/(flags\/[^/]*|countries\.json))$/;
 
 /** A glob of licenses.json (/, *, **, ?) as a RegExp over repo-relative paths with '/'. */
 function globRegExp(glob) {
@@ -392,7 +436,9 @@ function checkLicenses() {
     if (!ORIGINS.has(a.origin)) return err(`${at} (${name}): "origin" is one of ${[...ORIGINS].join(', ')}`);
     const license = typeof a.license === 'string' ? a.license.trim() : '';
     if (a.origin === 'unknown' || /^unknown$/i.test(license) || !license) {
-      return warn(`${name}: licence unknown: find the source and the licence, or replace the file, before handover (docs/ASSETS.md §5)`);
+      const own = files.filter((f) => !KIT_FILE.test(f));
+      if (!own.length) return;
+      return warn(`${own.join(', ')}: licence unknown: find the source and the licence, or replace the file, before handover (docs/ASSETS.md §5)`);
     }
     // Known to have no licence (e.g. the original game's assets): recorded in its notes, not checked.
     if (/^none$/i.test(license)) return;
@@ -420,7 +466,7 @@ function checkLicenses() {
     }
     for (const f of walk(root)) {
       const p = relative(process.cwd(), f).split('\\').join('/');
-      if (!RECORD_FILE.test(p) && !matchers.some((re) => re.test(p))) err(`${p} is in no licenses.json entry: add where it comes from (docs/ASSETS.md §2)`);
+      if (!RECORD_FILE.test(p) && !KIT_FILE.test(p) && !matchers.some((re) => re.test(p))) err(`${p} is in no licenses.json entry: add where it comes from (docs/ASSETS.md §2)`);
     }
   }
 }
@@ -549,10 +595,17 @@ function checkPackage() {
     if (/["'`]\/(assets|i18n|icons|Language)\//.test(js)) err(`${entry} uses an absolute path ("/assets/…" or "/i18n/…"): every path must be relative`);
     checkEmbed(js, entry);
     if (!/getSDK|GMSDKJS/.test(js)) warn(`${entry} never mentions getSDK / GMSDKJS: is the SDK wired in?`);
-    // Literal asset paths whose file is not in the package (a renamed file of tools/compress.mjs missed, a typo).
-    const missingAssets = [...new Set((js.match(/["'`](assets\/[^"'`?#\s]+\.(?:png|webp|jpe?g|mp3|ogg|wav|m4a|json))["'`?#]/gi) ?? []).map((m) => m.slice(1, -1)))].filter((p) => !existsExact(dir, p));
-    // On the CDN these do not load: a typo, a renamed file, or only the upper / lower case differs.
-    if (missingAssets.length) err(`${entry} names files that are not in the package under that exact name (upper / lower case counts on the CDN): ${missingAssets.slice(0, 6).join(', ')}`);
+    // Asset paths in game.js (assetPathProblem): an error only when they differ in upper / lower case from the file
+    // in the package (fine on Windows, broken on the CDN); not there at all is a warning (an atlas key, a typo, a
+    // renamed file of tools/compress.mjs missed).
+    const assetPaths = [...new Set((js.match(/["'`](assets\/[^"'`?#\s]+\.(?:png|webp|jpe?g|mp3|ogg|wav|m4a|json))["'`?#]/gi) ?? []).map((m) => m.slice(1, -1)))];
+    const byProblem = { case: [], missing: [] };
+    for (const p of assetPaths) {
+      const problem = assetPathProblem(dir, p);
+      if (problem) byProblem[problem].push(p);
+    }
+    if (byProblem.case.length) err(`${entry} names files whose upper / lower case differs from the package (works on Windows, missing on the CDN): ${byProblem.case.slice(0, 6).join(', ')}`);
+    if (byProblem.missing.length) warn(`${entry} names files that are not in the package (fine if they are keys, e.g. of an atlas; else a typo or a renamed file): ${byProblem.missing.slice(0, 6).join(', ')}`);
     // The leaderboard (docs/LEADERBOARD.md): its events name it in the minified code; the default screen its class.
     if (/leaderboard_submit/.test(js) && !m?.leaderboardId) err(`${entry} uses the leaderboard but game.json has no leaderboardId: set it in config.json`);
     // The game waits for loader.js (loadSDK) and hides its screen (createLoader().hide()): both go through GMLoader.

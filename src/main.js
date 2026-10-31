@@ -160,6 +160,18 @@ async function boot() {
 
   startLoop();
   Object.assign(window, { __game: Game, __phys: Physics2D, __time: Time, __render: Render, __THREE: THREE, __save: Save, __meta: MetaDebug, __ugui: UGUI, __scenes: SceneHost });
+  // dev server only: P outside a run grants 1000 gems and 1000 rubies (in a run P stays the pause key)
+  if (import.meta.env.DEV)
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== 'KeyP' || e.repeat || Game.manager?.RunState?.IsRunning || /INPUT|TEXTAREA/.test(e.target?.tagName)) return;
+      // written straight to the save (Currency.Gain would also report a currency_earn analytics event)
+      for (const c of [MetaDebug.Currencies.Soft, MetaDebug.Currencies.Hard]) {
+        const prev = c.value;
+        Save.data.currency[c.key] = prev + 1000;
+        c.onChange.Raise(c.value, prev, 'debug');
+      }
+      Save.setDirty();
+    });
   window.__app = {
     get state() {
       if (Game.manager?.RunState?.IsRunning) return 'running';

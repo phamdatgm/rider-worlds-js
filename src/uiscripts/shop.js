@@ -20,7 +20,7 @@ import { InputUIBlocker } from '../ugui/events.js';
 import { localize, ev, csFormat } from './common.js';
 import { PlayerRankManager } from './services.js';
 import { MainMenuManager, MainMenuPage } from './home.js';
-import { rewardAsset, hexInts } from './rewards.js';
+import { rewardAsset, hexInts, UIInput } from './rewards.js';
 import { rarityData, localizeRarity, replaceTerm } from './garage.js';
 import { Ads, AdResult } from '../ads.js';
 import { Analytics, snake } from '../analytics/index.js';
@@ -1673,6 +1673,19 @@ export class LootboxShopItemUI extends BaseGameShopItemUI {
   UpdatePurchaseButton() {
     super.UpdatePurchaseButton();
     if (!this.Settings) return;
+    // owner's request: a chest the player cannot pay for shows a grey price button that does not press
+    const pay = this.Settings.PaymentDefinition;
+    const short = pay?.pay === PaymentOption.Currency && !this.PaymentHandler.CanBePurchased(pay);
+    this.purchaseButton.interactable = !short;
+    const img = this.purchaseButton.image || this.purchaseButton.gameObject.GetComponent('Image');
+    if (img) {
+      this._imgColor ??= img.color;
+      img.color = short ? new Color(0.45, 0.45, 0.45, 1) : this._imgColor;
+    }
+    if (this.purchaseText) {
+      this._textColor ??= this.purchaseText.color;
+      this.purchaseText.color = short ? new Color(0.6, 0.6, 0.6, 1) : this._textColor;
+    }
     const blocked = this.OriginalPaymentBlockedByTimer;
     const active = this.cooldownText.gameObject.activeSelf;
     if (blocked) {
@@ -1845,6 +1858,14 @@ export class LootboxShopItem extends BaseGameShopItem {
   OnInitialize() {
     this.confirmationPrefab = this.Settings.ExtraSettings.confirmationPrefab;
     super.OnInitialize();
+  }
+
+  // owner's request: a chest paid with currency the player has opens at once, without the confirmation popup (the
+  // shop tutorial keeps its popup; short of currency the popup still offers the way to get more)
+  OpenConfirmationButton() {
+    const p = this.Settings.PaymentDefinition;
+    if (!this.shopTutorial?.IsStarted && p?.pay === PaymentOption.Currency && this.PaymentHandler.CanBePurchased(p)) this.OnPurchaseButtonClicked();
+    else super.OpenConfirmationButton();
   }
 
   OnPurchaseButtonClicked() {
@@ -2046,7 +2067,19 @@ export class BaseShopItemConfirmation extends MonoBehaviour {
     this.buyButtonText.SetText(this.GetButtonText());
     for (const b of this.closeButtons) b?.onClick.AddListener(this._close);
     this.buyButton.onClick.AddListener(this._press);
+    this.UpdateAffordable();
     this.OnInitialized();
+  }
+
+  /** owner's request: a price the player cannot pay greys the buy button out and it does not press (it pressed to nothing) */
+  UpdateAffordable() {
+    const p = this.settings.PaymentDefinition;
+    const short = p?.pay === PaymentOption.Currency && !this.settings.PaymentHandler.CanBePurchased(p);
+    this.buyButton.interactable = !short;
+    if (this.buyButtonText) {
+      this._textColor ??= this.buyButtonText.color;
+      this.buyButtonText.color = short ? new Color(0.6, 0.6, 0.6, 1) : this._textColor;
+    }
   }
 
   GetButtonText() {
@@ -2119,6 +2152,33 @@ export class LootboxShopItemConfirmation extends BaseShopItemConfirmation {
   }
 }
 
+/** Owner's request: a won card's reveal ends on a Claim button under it (UI_CardBase.PlayRevealSequence waited for two
+ *  taps anywhere). `button` / `label` may be getters, read once the card is shown; without a button a tap continues.
+ *  `onShown` runs as the button comes up. */
+function* revealAndClaim(card, button, label, onShown) {
+  // owner's request: quick and plain, the card comes out at once with its final count and rank (the skip of the
+  // lootbox reveal) instead of the reveal, the count ticking up and the level-up build-ups
+  yield* card.HandleSkip(false);
+  if (typeof button === 'function') button = button();
+  if (typeof label === 'function') label = label();
+  if (!button) {
+    yield new WaitWhile(() => !UIInput.mouseDown);
+    yield* card.PlayRemove();
+    return;
+  }
+  let claimed = false;
+  const claim = () => (claimed = true);
+  label?.SetText(localize('UI/Claim'));
+  button.interactable = true;
+  button.onClick.AddListener(claim);
+  button.Show();
+  onShown?.();
+  yield new WaitWhile(() => !claimed);
+  button.onClick.RemoveListener(claim);
+  button.Hide();
+  yield* card.PlayRemove();
+}
+
 export class DailyDealShopItemConfirmation extends BaseShopItemConfirmation {
   static typeName = 'DailyDealShopItemConfirmation';
 
@@ -2153,7 +2213,9 @@ export class DailyDealShopItemConfirmation extends BaseShopItemConfirmation {
     this.UnlinkButtons();
     for (const o of this.disableWhenPurchased || []) o?.Hide();
     this.cardBase.Show();
-    yield ComponentRegistry.get('UI_CardBase').PlayRevealSequence(this.cardBase, this.purchasedWaitTime);
+    // the Claim button is the buy button, moved out of the hidden popup
+    this.buyButton.transform.SetParent(this.transform, true);
+    yield* revealAndClaim(this.cardBase, this.buyButton, this.buyButtonText, () => (this.claiming = true));
     this.isDoingSequence = false;
     super.OnBuy(PaymentResponse.Success);
   }
@@ -2437,7 +2499,9 @@ export class UI_RVRewardTrackCardReveal extends MonoBehaviour {
   }
 
   *RevealSequence() {
-    yield ComponentRegistry.get('UI_CardBase').PlayRevealSequence(this.cardBase, this.cardRevealDismissDelay);
+    // the landscape layout adds a Claim button (src/ui2/layout.js, set up on a later layout pass); without it a tap
+    // continues
+    yield* revealAndClaim(this.cardBase, () => this.claimButton, () => this.claimLabel);
     Destroy(this.gameObject);
   }
 }

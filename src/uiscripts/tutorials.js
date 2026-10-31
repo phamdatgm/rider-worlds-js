@@ -7,7 +7,7 @@ import { registerComponent, registerSO, getRuntimeSO } from '../engine/instantia
 import { AnimationCurve } from '../engine/math.js';
 import { Mask } from '../ugui/graphic.js';
 import { InteractionBlocker, InputUIBlocker } from '../ugui/events.js';
-import { Tutorials, RiderBaseTutorial } from '../meta/tutorials.js';
+import { Tutorials, RiderBaseTutorial, TutorialState } from '../meta/tutorials.js';
 import { ev, localize } from './common.js';
 import { PlayerRankManager, WorldManager, ChallengeManager, TimedLevelModeController, GameManager } from './services.js';
 import { TransitionScreen } from './scenes.js';
@@ -301,6 +301,9 @@ export class TutorialHandBasic extends MonoBehaviour {
         yield new WaitForSeconds(self.hideLength);
         self.SetState(4);
         self.Clear();
+        // the animator's hide clip does not play here: a hidden hand stayed on screen where it last pointed (the
+        // Large Chest popup's price, over the chest that opens next); Show turns it back on
+        self.gameObject.SetActive(false);
       })());
     }
   }
@@ -740,7 +743,16 @@ export class ClaimChallengeTutorial extends RiderBaseTutorial {
     return 'FTUE_ClaimChallenge';
   }
 
+  // Not shown (owner's request, 2026-10-30): skipped on load, also when a save stopped inside it, so the challenge
+  // overlay's auto-claim, which waits for a started tutorial, never waits on it.
+  CheckStateOnLoad() {
+    if (this.IsFinished) return;
+    this.state = TutorialState.Skipped;
+    this.service.SetTutorialState(this);
+  }
+
   CanStart() {
+    if (this.IsFinished) return false;
     if (!super.CanStart() || !mm()) return false;
     if (!home()?.challengeDisplay?.IsOpen) return false;
     return ChallengeManager.Instance.GetActiveClaimableChallenges() !== 0;
@@ -993,6 +1005,8 @@ export class ShopTutorial extends RiderBaseTutorial {
     if (!super.CanStart() || this.rs.IsRunning || !mm()) return false;
     if (PlayerRankManager.Instance.CurrentRank < this.startRank) return false;
     if (UIStatics.RankUpPopup.IsOpenOrActive) return false;
+    // a Home popup (challenges, timed levels, world stats, bonus) covers the tab bar in landscape: wait for it to close
+    if (homePopupOpen()) return false;
     return !UIStatics.RewardTrackOpen;
   }
 
@@ -1151,6 +1165,16 @@ export class UnlockWorldTutorial extends RiderBaseTutorial {
     U().Hide();
     this.Complete();
   }
+}
+
+/** a Home popup is up (the challenge overlay, timed levels, world stats or the bonus claim) */
+const homePopups = new WeakMap();
+function homePopupOpen() {
+  const m = mm();
+  if (!m) return false;
+  let list = homePopups.get(m);
+  if (!list) homePopups.set(m, (list = ['UI_ChallengeOverlay', 'UI_TimedLevelMenu', 'UI_WorldStatsMenu', 'UI_ClaimBonusOverlay'].flatMap((n) => m.GetComponentsInChildren(n, true))));
+  return list.some((c) => c.gameObject.activeInHierarchy);
 }
 
 // ---------------------------------------------------------------- hooks used by the tutorial service

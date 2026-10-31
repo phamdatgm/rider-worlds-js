@@ -111,6 +111,7 @@ export const EventSystem = {
   canvas: null,
   /** set by InputUIBlocker */
   blocked: 0,
+  blockedExcept: null,
   currentSelectedGameObject: null,
 
   init(canvas) {
@@ -166,9 +167,15 @@ export const EventSystem = {
   },
 
   raycastTop(x, y) {
-    if (!this.enabled || this.blocked > 0) return null;
+    if (!this.enabled) return null;
     const hits = UISystem.raycast(x, y);
-    return hits.length ? hits[0].gameObject : null;
+    const top = hits.length ? hits[0].gameObject : null;
+    if (this.blocked > 0) {
+      // blockedExcept: the one control that still answers while input is blocked (a popup's close button)
+      const ex = this.blockedExcept;
+      return ex && top && (top === ex || top.transform.IsChildOf?.(ex.transform)) ? top : null;
+    }
+    return top;
   },
 
   data(id) {

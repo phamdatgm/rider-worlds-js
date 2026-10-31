@@ -48,6 +48,8 @@ Câu trả lời ghi trong **`licenses.json`**, cạnh `config.json` và `analyt
 
 Thư viện code đóng gói vào `game.js` (engine, vật lý) cũng nên có một dòng `type: code` (MIT, BSD, Apache được dùng; GPL / AGPL thì không). Dòng này không cần nằm trong `roots`.
 
+**File do kit cấp không cần ghi:** `public/loader.js`, `public/icons/logo.webp`, `public/icons/loader.css`, cờ và `countries.json` của bảng xếp hạng (`public/assets/leaderboard/`). Kit chịu trách nhiệm cho chúng; `check-export` không đòi mục, không báo "licence unknown". `icons/loading.webp` là key art của game: phải ghi như asset khác.
+
 ## 3. Giấy phép
 
 | Giấy phép | Dùng được? | Điều kiện |

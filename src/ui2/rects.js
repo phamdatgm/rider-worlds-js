@@ -26,7 +26,7 @@ export const rects = {
   },
   "h.gem": {
     "x": 1088,
-    "y": 66,
+    "y": 20,
     "w": 160,
     "h": 40,
     "fs": 17,
@@ -34,7 +34,7 @@ export const rects = {
   },
   "h.ruby": {
     "x": 1088,
-    "y": 20,
+    "y": 66,
     "w": 160,
     "h": 40,
     "fs": 17,
@@ -113,11 +113,11 @@ export const rects = {
     "anchor": "canvas"
   },
   "h.hsNew": {
-    "x": 730,
-    "y": 100,
-    "w": 50,
-    "h": 26,
-    "fs": null,
+    "x": 540,
+    "y": 140,
+    "w": 200,
+    "h": 24,
+    "fs": 18,
     "anchor": "canvas"
   },
   "h.lb": {
@@ -729,10 +729,10 @@ export const rects = {
     "anchor": "canvas"
   },
   "sp.ad": {
-    "x": 50,
-    "y": 177,
-    "w": 80,
-    "h": 66,
+    "x": 52,
+    "y": 174,
+    "w": 72,
+    "h": 72,
     "fs": 26,
     "anchor": "canvas"
   },
@@ -809,82 +809,82 @@ export const rects = {
     "anchor": "canvas"
   },
   "sc.icon": {
-    "x": 60,
-    "y": 470,
-    "w": 200,
-    "h": 200,
+    "x": 545,
+    "y": 206,
+    "w": 190,
+    "h": 190,
     "fs": 60,
     "anchor": "canvas"
   },
   "sc.title": {
-    "x": 290,
-    "y": 470,
-    "w": 400,
-    "h": 44,
+    "x": 500,
+    "y": 138,
+    "w": 280,
+    "h": 36,
     "fs": 30,
     "anchor": "canvas"
   },
   "sc.rarity": {
-    "x": 290,
-    "y": 514,
-    "w": 400,
-    "h": 24,
+    "x": 500,
+    "y": 174,
+    "w": 280,
+    "h": 22,
     "fs": 16,
     "anchor": "canvas"
   },
   "sc.info": {
-    "x": 290,
-    "y": 556,
-    "w": 360,
-    "h": 48,
+    "x": 500,
+    "y": 404,
+    "w": 280,
+    "h": 40,
     "fs": 17,
     "anchor": "canvas"
   },
   "sc.buy": {
-    "x": 900,
-    "y": 540,
-    "w": 260,
-    "h": 70,
+    "x": 535,
+    "y": 456,
+    "w": 210,
+    "h": 56,
     "fs": 24,
     "anchor": "canvas"
   },
   "sc.close": {
-    "x": 1190,
-    "y": 450,
-    "w": 64,
-    "h": 56,
+    "x": 766,
+    "y": 102,
+    "w": 52,
+    "h": 48,
     "fs": 22,
     "anchor": "canvas"
   },
   "sr.title": {
-    "x": 430,
-    "y": 140,
-    "w": 420,
+    "x": 500,
+    "y": 156,
+    "w": 280,
     "h": 34,
-    "fs": 18,
+    "fs": 20,
     "anchor": "canvas"
   },
   "sr.count": {
-    "x": 430,
-    "y": 174,
-    "w": 420,
+    "x": 500,
+    "y": 198,
+    "w": 280,
     "h": 24,
     "fs": 16,
     "anchor": "canvas"
   },
   "sr.info": {
-    "x": 430,
-    "y": 200,
-    "w": 420,
+    "x": 500,
+    "y": 224,
+    "w": 280,
     "h": 24,
     "fs": 15,
     "anchor": "canvas"
   },
   "sr.ad": {
-    "x": 550,
-    "y": 276,
-    "w": 180,
-    "h": 50,
+    "x": 535,
+    "y": 272,
+    "w": 210,
+    "h": 56,
     "fs": 22,
     "anchor": "canvas"
   },
@@ -1066,25 +1066,25 @@ export const rects = {
   },
   "ru.title": {
     "x": 440,
-    "y": 110,
+    "y": 64,
     "w": 400,
     "h": 56,
     "fs": 40,
     "anchor": "canvas"
   },
   "ru.star": {
-    "x": 545,
-    "y": 170,
-    "w": 190,
-    "h": 180,
+    "x": 560,
+    "y": 126,
+    "w": 160,
+    "h": 150,
     "fs": 44,
     "anchor": "canvas"
   },
   "ru.reward": {
-    "x": 390,
-    "y": 370,
-    "w": 240,
-    "h": 110,
+    "x": 545,
+    "y": 292,
+    "w": 190,
+    "h": 190,
     "fs": 16,
     "anchor": "canvas"
   },
@@ -1098,7 +1098,7 @@ export const rects = {
   },
   "ru.tap": {
     "x": 440,
-    "y": 580,
+    "y": 578,
     "w": 400,
     "h": 30,
     "fs": 18,
@@ -1153,18 +1153,18 @@ export const rects = {
     "anchor": "canvas"
   },
   "lx.chest": {
-    "x": 470,
-    "y": 140,
-    "w": 340,
-    "h": 320,
+    "x": 508,
+    "y": 473,
+    "w": 264,
+    "h": 150,
     "fs": null,
     "anchor": "canvas"
   },
   "lx.left": {
-    "x": 552,
-    "y": 342,
-    "w": 66,
-    "h": 66,
+    "x": 742,
+    "y": 476,
+    "w": 44,
+    "h": 44,
     "fs": null,
     "anchor": "canvas"
   },
@@ -1177,32 +1177,32 @@ export const rects = {
     "anchor": "canvas"
   },
   "lx.overview": {
-    "x": 230,
-    "y": 60,
-    "w": 820,
-    "h": 520,
+    "x": 40,
+    "y": 8,
+    "w": 1200,
+    "h": 632,
     "fs": null,
     "anchor": "canvas"
   },
   "lx.card": {
-    "x": 699,
-    "y": 130,
-    "w": 288,
-    "h": 440,
+    "x": 532,
+    "y": 159,
+    "w": 216,
+    "h": 250,
     "fs": 17,
     "anchor": "canvas"
   },
   "lx.lose": {
-    "x": 214,
-    "y": 590,
+    "x": 547,
+    "y": 548,
     "w": 186,
     "h": 56,
     "fs": 18,
     "anchor": "canvas"
   },
   "lx.rv": {
-    "x": 420,
-    "y": 590,
+    "x": 547,
+    "y": 480,
     "w": 186,
     "h": 56,
     "fs": 22,
@@ -1210,9 +1210,9 @@ export const rects = {
   },
   "lx.claim": {
     "x": 530,
-    "y": 620,
+    "y": 648,
     "w": 220,
-    "h": 60,
+    "h": 56,
     "fs": 20,
     "anchor": "canvas"
   },
@@ -1221,7 +1221,7 @@ export const rects = {
     "y": 18,
     "w": 150,
     "h": 34,
-    "fs": 16,
+    "fs": 20,
     "anchor": "top-left"
   },
   "hd.best": {
@@ -1231,6 +1231,14 @@ export const rects = {
     "h": 22,
     "fs": 15,
     "anchor": "canvas"
+  },
+  "hd.chstatus": {
+    "x": 240,
+    "y": 644,
+    "w": 800,
+    "h": 36,
+    "fs": 22,
+    "anchor": "bottom"
   },
   "hd.score": {
     "x": 540,
@@ -1393,11 +1401,11 @@ export const rects = {
     "anchor": "canvas"
   },
   "tu.text": {
-    "x": 290,
+    "x": 140,
     "y": 570,
-    "w": 700,
+    "w": 1000,
     "h": 60,
-    "fs": 32,
+    "fs": 30,
     "anchor": "canvas"
   },
   "tu.tap": {

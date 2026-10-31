@@ -6,6 +6,9 @@ export const Meta = {
   data: null,
   async load() {
     this.data = await (await fetchRetry(assetUrl('meta.json'))).json();
+    // a web game played with the mouse: "Tap to continue" / "Tap to Open" read "Click ..." (owner's request, 2026-10-30)
+    const loc = this.data.loc || {};
+    for (const [k, v] of Object.entries(loc)) if (typeof v === 'string') loc[k] = v.replace(/\bTap\b/g, 'Click').replace(/\btap\b/g, 'click').replace(/\bTAP\b/g, 'CLICK');
     return this.data;
   },
 };
